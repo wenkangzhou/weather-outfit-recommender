@@ -45,6 +45,32 @@ const first = <T>(data: T[] | null): T | null => {
   return data && data.length > 0 ? data[0] : null;
 };
 
+// Database row types
+interface ClothingItemRow {
+  id: string;
+  name: string;
+  category: string;
+  sub_category: string;
+  warmth_level: number;
+  water_resistant: boolean;
+  wind_resistant: boolean;
+  color: string;
+  image_url: string;
+  created_at: string;
+}
+
+interface UserPreferencesRow {
+  id: string;
+  location: string;
+  commute_distance: number;
+  run_distance: number;
+  cold_sensitivity: number;
+  hot_sensitivity: number;
+  sweat_level: 'low' | 'medium' | 'high';
+  wind_sensitivity: boolean;
+  rain_preference: 'avoid' | 'acceptable' | 'brave';
+}
+
 // API functions
 export async function getClothingItems(): Promise<ClothingItem[]> {
   if (!isConfigured || !supabase) return getDemoItems();
@@ -59,7 +85,9 @@ export async function getClothingItems(): Promise<ClothingItem[]> {
     return getDemoItems();
   }
   
-  return (data || []).map(item => ({
+  const rows = (data || []) as ClothingItemRow[];
+  
+  return rows.map((item: ClothingItemRow) => ({
     id: item.id,
     name: item.name,
     category: item.category,
@@ -98,14 +126,14 @@ export async function addClothingItem(item: Omit<ClothingItem, 'id' | 'createdAt
       created_at: new Date().toISOString(),
     }])
     .select()
-    .limit(1); // Changed from single() to avoid 406
+    .limit(1);
   
   if (error) {
     console.error('addClothingItem error:', error);
     throw error;
   }
   
-  const record = first(data);
+  const record = first(data as ClothingItemRow[]);
   if (!record) throw new Error('No data returned');
   
   return {
@@ -148,7 +176,7 @@ export async function getOutfitHistory(): Promise<Outfit[]> {
     console.error('getOutfitHistory error:', error);
     return [];
   }
-  return data || [];
+  return (data || []) as Outfit[];
 }
 
 export async function saveOutfit(outfit: Omit<Outfit, 'id'>): Promise<Outfit> {
@@ -169,10 +197,10 @@ export async function saveOutfit(outfit: Omit<Outfit, 'id'>): Promise<Outfit> {
       rating: outfit.rating,
     }])
     .select()
-    .limit(1); // Changed from single()
+    .limit(1);
   
   if (error) throw error;
-  return first(data) as Outfit;
+  return first(data as Outfit[]) as Outfit;
 }
 
 export async function getUserPreferences(): Promise<UserPreferences | null> {
@@ -188,7 +216,7 @@ export async function getUserPreferences(): Promise<UserPreferences | null> {
     return getDemoPrefs();
   }
   
-  const record = first(data);
+  const record = first(data as UserPreferencesRow[]);
   if (!record) return null;
   
   return {
@@ -216,7 +244,7 @@ export async function saveUserPreferences(prefs: Omit<UserPreferences, 'id'>): P
     .select('id')
     .limit(1);
   
-  const existing = first(existingData);
+  const existing = first(existingData as { id: string }[]);
   
   const dbPrefs = {
     location: prefs.location,
@@ -235,10 +263,10 @@ export async function saveUserPreferences(prefs: Omit<UserPreferences, 'id'>): P
       .update(dbPrefs)
       .eq('id', existing.id)
       .select()
-      .limit(1); // Changed from single()
+      .limit(1);
     
     if (error) throw error;
-    const record = first(data);
+    const record = first(data as UserPreferencesRow[]);
     if (!record) throw new Error('Update failed');
     return { ...record, ...prefs };
   } else {
@@ -246,10 +274,10 @@ export async function saveUserPreferences(prefs: Omit<UserPreferences, 'id'>): P
       .from('user_preferences')
       .insert([dbPrefs])
       .select()
-      .limit(1); // Changed from single()
+      .limit(1);
     
     if (error) throw error;
-    const record = first(data);
+    const record = first(data as UserPreferencesRow[]);
     if (!record) throw new Error('Insert failed');
     return { ...record, ...prefs };
   }
