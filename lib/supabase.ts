@@ -1,0 +1,276 @@
+import { createClient } from '@supabase/supabase-js';
+import { ClothingItem, Outfit, UserPreferences } from '@/types';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+
+const isConfigured = supabaseUrl && supabaseKey;
+
+// Create client
+export const supabase = isConfigured
+  ? createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+        detectSessionInUrl: false,
+      },
+    })
+  : (null as any);
+
+// Demo mode helpers
+const getDemoItems = (): ClothingItem[] => {
+  if (typeof window === 'undefined') return [];
+  const items = localStorage.getItem('demo_clothing_items');
+  return items ? JSON.parse(items) : [];
+};
+
+const setDemoItems = (items: ClothingItem[]) => {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem('demo_clothing_items', JSON.stringify(items));
+};
+
+const getDemoPrefs = (): UserPreferences | null => {
+  if (typeof window === 'undefined') return null;
+  const prefs = localStorage.getItem('demo_preferences');
+  return prefs ? JSON.parse(prefs) : null;
+};
+
+const setDemoPrefs = (prefs: UserPreferences) => {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem('demo_preferences', JSON.stringify(prefs));
+};
+
+// Helper to get first item from array response
+const first = <T>(data: T[] | null): T | null => {
+  return data && data.length > 0 ? data[0] : null;
+};
+
+// API functions
+export async function getClothingItems(): Promise<ClothingItem[]> {
+  if (!isConfigured || !supabase) return getDemoItems();
+  
+  const { data, error } = await supabase
+    .from('clothing_items')
+    .select('*')
+    .order('created_at', { ascending: false });
+  
+  if (error) {
+    console.error('getClothingItems error:', error);
+    return getDemoItems();
+  }
+  
+  return (data || []).map(item => ({
+    id: item.id,
+    name: item.name,
+    category: item.category,
+    subCategory: item.sub_category,
+    warmthLevel: item.warmth_level,
+    waterResistant: item.water_resistant,
+    windResistant: item.wind_resistant,
+    color: item.color,
+    imageUrl: item.image_url,
+    createdAt: item.created_at,
+  }));
+}
+
+export async function addClothingItem(item: Omit<ClothingItem, 'id' | 'createdAt'>): Promise<ClothingItem> {
+  if (!isConfigured || !supabase) {
+    const newItem: ClothingItem = {
+      ...item,
+      id: 'demo_' + Date.now(),
+      createdAt: new Date().toISOString(),
+    };
+    setDemoItems([newItem, ...getDemoItems()]);
+    return newItem;
+  }
+  
+  const { data, error } = await supabase
+    .from('clothing_items')
+    .insert([{
+      name: item.name,
+      category: item.category,
+      sub_category: item.subCategory,
+      warmth_level: item.warmthLevel,
+      water_resistant: item.waterResistant,
+      wind_resistant: item.windResistant,
+      color: item.color,
+      image_url: item.imageUrl,
+      created_at: new Date().toISOString(),
+    }])
+    .select()
+    .limit(1); // Changed from single() to avoid 406
+  
+  if (error) {
+    console.error('addClothingItem error:', error);
+    throw error;
+  }
+  
+  const record = first(data);
+  if (!record) throw new Error('No data returned');
+  
+  return {
+    id: record.id,
+    name: record.name,
+    category: record.category,
+    subCategory: record.sub_category,
+    warmthLevel: record.warmth_level,
+    waterResistant: record.water_resistant,
+    windResistant: record.wind_resistant,
+    color: record.color,
+    imageUrl: record.image_url,
+    createdAt: record.created_at,
+  };
+}
+
+export async function deleteClothingItem(id: string): Promise<void> {
+  if (!isConfigured || !supabase) {
+    setDemoItems(getDemoItems().filter(item => item.id !== id));
+    return;
+  }
+  
+  const { error } = await supabase
+    .from('clothing_items')
+    .delete()
+    .eq('id', id);
+  
+  if (error) throw error;
+}
+
+export async function getOutfitHistory(): Promise<Outfit[]> {
+  if (!isConfigured || !supabase) return [];
+  
+  const { data, error } = await supabase
+    .from('outfits')
+    .select('*')
+    .order('created_at', { ascending: false });
+  
+  if (error) {
+    console.error('getOutfitHistory error:', error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function saveOutfit(outfit: Omit<Outfit, 'id'>): Promise<Outfit> {
+  if (!isConfigured || !supabase) {
+    return { ...outfit, id: 'demo_' + Date.now() } as Outfit;
+  }
+  
+  const { data, error } = await supabase
+    .from('outfits')
+    .insert([{
+      top_id: outfit.top.id,
+      bottom_id: outfit.bottom.id,
+      socks_id: outfit.socks.id,
+      shoes_id: outfit.shoes.id,
+      scene: outfit.scene,
+      weather_snapshot: outfit.weatherSnapshot,
+      note: outfit.note,
+      rating: outfit.rating,
+    }])
+    .select()
+    .limit(1); // Changed from single()
+  
+  if (error) throw error;
+  return first(data) as Outfit;
+}
+
+export async function getUserPreferences(): Promise<UserPreferences | null> {
+  if (!isConfigured || !supabase) return getDemoPrefs();
+  
+  const { data, error } = await supabase
+    .from('user_preferences')
+    .select('*')
+    .limit(1);
+  
+  if (error) {
+    console.error('getUserPreferences error:', error);
+    return getDemoPrefs();
+  }
+  
+  const record = first(data);
+  if (!record) return null;
+  
+  return {
+    id: record.id,
+    location: record.location,
+    commuteDistance: record.commute_distance,
+    runDistance: record.run_distance,
+    coldSensitivity: record.cold_sensitivity,
+    hotSensitivity: record.hot_sensitivity,
+    sweatLevel: record.sweat_level,
+    windSensitivity: record.wind_sensitivity,
+    rainPreference: record.rain_preference,
+  };
+}
+
+export async function saveUserPreferences(prefs: Omit<UserPreferences, 'id'>): Promise<UserPreferences> {
+  if (!isConfigured || !supabase) {
+    const newPrefs = { ...prefs, id: 'demo_prefs' } as UserPreferences;
+    setDemoPrefs(newPrefs);
+    return newPrefs;
+  }
+  
+  const { data: existingData } = await supabase
+    .from('user_preferences')
+    .select('id')
+    .limit(1);
+  
+  const existing = first(existingData);
+  
+  const dbPrefs = {
+    location: prefs.location,
+    commute_distance: prefs.commuteDistance,
+    run_distance: prefs.runDistance,
+    cold_sensitivity: prefs.coldSensitivity,
+    hot_sensitivity: prefs.hotSensitivity,
+    sweat_level: prefs.sweatLevel,
+    wind_sensitivity: prefs.windSensitivity,
+    rain_preference: prefs.rainPreference,
+  };
+  
+  if (existing) {
+    const { data, error } = await supabase
+      .from('user_preferences')
+      .update(dbPrefs)
+      .eq('id', existing.id)
+      .select()
+      .limit(1); // Changed from single()
+    
+    if (error) throw error;
+    const record = first(data);
+    if (!record) throw new Error('Update failed');
+    return { ...record, ...prefs };
+  } else {
+    const { data, error } = await supabase
+      .from('user_preferences')
+      .insert([dbPrefs])
+      .select()
+      .limit(1); // Changed from single()
+    
+    if (error) throw error;
+    const record = first(data);
+    if (!record) throw new Error('Insert failed');
+    return { ...record, ...prefs };
+  }
+}
+
+export async function uploadClothingImage(file: File): Promise<string> {
+  if (!isConfigured || !supabase) {
+    return URL.createObjectURL(file);
+  }
+  
+  const fileName = `${Date.now()}_${file.name}`;
+  const { error } = await supabase
+    .storage
+    .from('clothing-images')
+    .upload(fileName, file);
+  
+  if (error) {
+    console.error('upload error:', error);
+    return URL.createObjectURL(file);
+  }
+  
+  const { data } = supabase.storage.from('clothing-images').getPublicUrl(fileName);
+  return data.publicUrl;
+}
