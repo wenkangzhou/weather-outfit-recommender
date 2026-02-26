@@ -1,6 +1,7 @@
 export const metadata = {
-  title: '今日穿搭推荐',
-  description: '基于天气的智能穿搭助手',
+  title: 'Weather Style - 智能穿搭',
+  description: '基于天气的智能穿搭推荐',
+  viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover',
 };
 
 export default function RootLayout({
@@ -10,7 +11,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-CN">
-      <body className="min-h-screen bg-gray-50">
+      <body className="antialiased">
         {children}
       </body>
     </html>

@@ -1,10 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  Settings, Package, History, Plus, Trash2, 
-  Thermometer, Wind, Droplets, ChevronRight 
-} from 'lucide-react';
+import { Settings, Package, History, Plus, Trash2, ChevronRight, MapPin } from 'lucide-react';
 import { ClothingItem, ClothingCategory, ClothingSubCategory, UserPreferences, Outfit } from '@/types';
 import { getClothingItems, addClothingItem, deleteClothingItem, getUserPreferences, saveUserPreferences, getOutfitHistory } from '@/lib/supabase';
 
@@ -78,38 +75,43 @@ export default function SettingsTab() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+        <div className="w-8 h-8 border-3 border-white/30 border-t-white rounded-full animate-spin" />
       </div>
     );
   }
 
-  // Menu View
   if (activeSection === 'menu') {
     return (
-      <div className="p-4 space-y-3">
-        <MenuItem
-          icon={<Package className="text-blue-500" />}
-          title="我的衣柜"
-          subtitle={`已录入 ${clothingItems.length} 件衣物`}
-          onClick={() => setActiveSection('wardrobe')}
-        />
-        <MenuItem
-          icon={<History className="text-green-500" />}
-          title="穿搭历史"
-          subtitle={`${outfitHistory.length} 条记录`}
-          onClick={() => setActiveSection('history')}
-        />
-        <MenuItem
-          icon={<Settings className="text-purple-500" />}
-          title="个性化设置"
-          subtitle="偏好、敏感度、位置"
-          onClick={() => setActiveSection('settings')}
-        />
+      <div className="space-y-4 animate-fade-in">
+        <div className="text-center py-8">
+          <h1 className="text-3xl font-semibold text-white mb-2">设置</h1>
+          <p className="text-white/60">管理你的衣柜和偏好</p>
+        </div>
+        
+        <div className="space-y-3">
+          <MenuCard
+            icon={<Package className="text-blue-400" size={24} />}
+            title="我的衣柜"
+            subtitle={`${clothingItems.length} 件衣物`}
+            onClick={() => setActiveSection('wardrobe')}
+          />
+          <MenuCard
+            icon={<History className="text-green-400" size={24} />}
+            title="穿搭历史"
+            subtitle={`${outfitHistory.length} 条记录`}
+            onClick={() => setActiveSection('history')}
+          />
+          <MenuCard
+            icon={<Settings className="text-purple-400" size={24} />}
+            title="个性化设置"
+            subtitle="位置、偏好、体感"
+            onClick={() => setActiveSection('settings')}
+          />
+        </div>
       </div>
     );
   }
 
-  // Wardrobe View
   if (activeSection === 'wardrobe') {
     return (
       <WardrobeView
@@ -121,7 +123,6 @@ export default function SettingsTab() {
     );
   }
 
-  // History View
   if (activeSection === 'history') {
     return (
       <HistoryView
@@ -131,7 +132,6 @@ export default function SettingsTab() {
     );
   }
 
-  // Settings View
   if (activeSection === 'settings') {
     return (
       <SettingsView
@@ -148,8 +148,7 @@ export default function SettingsTab() {
   return null;
 }
 
-// Sub-components
-function MenuItem({ icon, title, subtitle, onClick }: {
+function MenuCard({ icon, title, subtitle, onClick }: {
   icon: React.ReactNode;
   title: string;
   subtitle: string;
@@ -158,16 +157,16 @@ function MenuItem({ icon, title, subtitle, onClick }: {
   return (
     <button
       onClick={onClick}
-      className="w-full bg-white p-4 rounded-xl border border-gray-200 flex items-center gap-4 hover:border-primary-300 transition-colors"
+      className="w-full glass-card p-4 flex items-center gap-4 hover:bg-white/20 transition-all active:scale-[0.98]"
     >
-      <div className="w-10 h-10 bg-gray-50 rounded-lg flex items-center justify-center">
+      <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center">
         {icon}
       </div>
       <div className="flex-1 text-left">
-        <div className="font-medium text-gray-900">{title}</div>
-        <div className="text-sm text-gray-500">{subtitle}</div>
+        <div className="text-white font-semibold text-lg">{title}</div>
+        <div className="text-white/50 text-sm">{subtitle}</div>
       </div>
-      <ChevronRight size={20} className="text-gray-400" />
+      <ChevronRight size={20} className="text-white/40" />
     </button>
   );
 }
@@ -186,7 +185,7 @@ function WardrobeView({ items, onBack, onAddItem, onDeleteItem }: {
     warmthLevel: 5,
     waterResistant: false,
     windResistant: false,
-    color: '#000000',
+    color: '#ffffff',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -200,14 +199,7 @@ function WardrobeView({ items, onBack, onAddItem, onDeleteItem }: {
       });
       onAddItem(newItem);
       setShowAddForm(false);
-      setFormData({
-        name: '',
-        subCategory: '',
-        warmthLevel: 5,
-        waterResistant: false,
-        windResistant: false,
-        color: '#000000',
-      });
+      setFormData({ name: '', subCategory: '', warmthLevel: 5, waterResistant: false, windResistant: false, color: '#ffffff' });
     } catch (error) {
       alert('添加失败');
     }
@@ -228,169 +220,148 @@ function WardrobeView({ items, onBack, onAddItem, onDeleteItem }: {
   };
 
   return (
-    <div className="p-4">
-      <div className="flex items-center justify-between mb-4">
-        <button onClick={onBack} className="text-gray-500 hover:text-gray-700">← 返回</button>
+    <div className="animate-fade-in">
+      <div className="flex items-center justify-between mb-6">
+        <button onClick={onBack} className="text-white/70 hover:text-white flex items-center gap-1">
+          ← 返回
+        </button>
         <button
           onClick={() => setShowAddForm(true)}
-          className="flex items-center gap-1 text-primary-600 font-medium"
+          className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white"
         >
-          <Plus size={18} />
-          添加
+          <Plus size={20} />
         </button>
       </div>
 
+      <h2 className="text-2xl font-semibold text-white mb-6">我的衣柜</h2>
+
       {showAddForm && (
-        <form onSubmit={handleSubmit} className="bg-white p-4 rounded-xl border border-gray-200 mb-4 space-y-3">
-          <select
-            value={category}
-            onChange={(e) => {
-              setCategory(e.target.value as ClothingCategory);
-              setFormData(prev => ({ ...prev, subCategory: '' }));
-            }}
-            className="w-full p-2 border border-gray-300 rounded-lg"
-          >
-            <option value="top">上衣</option>
-            <option value="bottom">下装</option>
-            <option value="socks">袜子</option>
-            <option value="shoes">鞋子</option>
-          </select>
+        <div className="glass-card p-4 mb-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <select
+              value={category}
+              onChange={(e) => { setCategory(e.target.value as ClothingCategory); setFormData(prev => ({ ...prev, subCategory: '' })); }}
+              className="w-full p-3 bg-white/10 border border-white/20 rounded-xl text-white"
+            >
+              <option value="top" className="bg-gray-800">上衣</option>
+              <option value="bottom" className="bg-gray-800">下装</option>
+              <option value="socks" className="bg-gray-800">袜子</option>
+              <option value="shoes" className="bg-gray-800">鞋子</option>
+            </select>
 
-          <input
-            type="text"
-            placeholder="名称（如：白色T恤）"
-            value={formData.name}
-            onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-            className="w-full p-2 border border-gray-300 rounded-lg"
-            required
-          />
-
-          <select
-            value={formData.subCategory}
-            onChange={(e) => setFormData(prev => ({ ...prev, subCategory: e.target.value }))}
-            className="w-full p-2 border border-gray-300 rounded-lg"
-            required
-          >
-            <option value="">选择类型</option>
-            {SUB_CATEGORIES[category].map(sub => (
-              <option key={sub.value} value={sub.value}>{sub.label}</option>
-            ))}
-          </select>
-
-          <div>
-            <label className="text-sm text-gray-600">保暖度: {formData.warmthLevel}</label>
             <input
-              type="range"
-              min="1"
-              max="10"
-              value={formData.warmthLevel}
-              onChange={(e) => setFormData(prev => ({ ...prev, warmthLevel: parseInt(e.target.value) }))}
-              className="w-full"
+              type="text"
+              placeholder="名称（如：白色T恤）"
+              value={formData.name}
+              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+              className="w-full p-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40"
+              required
             />
-          </div>
 
-          <div className="flex gap-4">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={formData.waterResistant}
-                onChange={(e) => setFormData(prev => ({ ...prev, waterResistant: e.target.checked }))}
-              />
-              <span className="text-sm">防水</span>
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={formData.windResistant}
-                onChange={(e) => setFormData(prev => ({ ...prev, windResistant: e.target.checked }))}
-              />
-              <span className="text-sm">防风</span>
-            </label>
-          </div>
+            <select
+              value={formData.subCategory}
+              onChange={(e) => setFormData(prev => ({ ...prev, subCategory: e.target.value }))}
+              className="w-full p-3 bg-white/10 border border-white/20 rounded-xl text-white"
+              required
+            >
+              <option value="" className="bg-gray-800">选择类型</option>
+              {SUB_CATEGORIES[category].map(sub => (
+                <option key={sub.value} value={sub.value} className="bg-gray-800">{sub.label}</option>
+              ))}
+            </select>
 
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setShowAddForm(false)}
-              className="flex-1 py-2 text-gray-600"
-            >
-              取消
-            </button>
-            <button
-              type="submit"
-              className="flex-1 py-2 bg-primary-600 text-white rounded-lg"
-            >
-              保存
-            </button>
-          </div>
-        </form>
+            <div>
+              <label className="text-white/70 text-sm">保暖度: {formData.warmthLevel}</label>
+              <input
+                type="range"
+                min="1"
+                max="10"
+                value={formData.warmthLevel}
+                onChange={(e) => setFormData(prev => ({ ...prev, warmthLevel: parseInt(e.target.value) }))}
+                className="w-full mt-2 accent-white"
+              />
+            </div>
+
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 text-white/80">
+                <input type="checkbox" checked={formData.waterResistant} onChange={(e) => setFormData(prev => ({ ...prev, waterResistant: e.target.checked }))} className="accent-blue-500" />
+                防水
+              </label>
+              <label className="flex items-center gap-2 text-white/80">
+                <input type="checkbox" checked={formData.windResistant} onChange={(e) => setFormData(prev => ({ ...prev, windResistant: e.target.checked }))} className="accent-gray-500" />
+                防风
+              </label>
+            </div>
+
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setShowAddForm(false)} className="flex-1 py-3 text-white/70 hover:text-white">取消</button>
+              <button type="submit" className="flex-1 py-3 bg-white/20 hover:bg-white/30 text-white rounded-xl font-medium">保存</button>
+            </div>
+          </form>
+        </div>
       )}
 
       <div className="space-y-4">
-        {Object.entries(groupedItems).map(([cat, catItems]) => (
+        {Object.entries(groupedItems).map(([cat, catItems]) =>
           catItems.length > 0 && (
             <div key={cat}>
-              <h3 className="font-medium text-gray-700 mb-2">{categoryLabels[cat]} ({catItems.length})</h3>
+              <h3 className="text-white/60 text-sm font-medium mb-3 uppercase tracking-wider">{categoryLabels[cat]}</h3>
               <div className="space-y-2">
                 {catItems.map(item => (
-                  <div key={item.id} className="bg-white p-3 rounded-xl border border-gray-200 flex items-center justify-between">
+                  <div key={item.id} className="glass-card p-3 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-lg">
+                      <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center text-2xl">
                         {cat === 'top' ? '👕' : cat === 'bottom' ? '👖' : cat === 'socks' ? '🧦' : '👟'}
                       </div>
                       <div>
-                        <div className="font-medium">{item.name}</div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-white font-medium">{item.name}</div>
+                        <div className="text-white/50 text-sm">
                           {'🔥'.repeat(Math.ceil(item.warmthLevel / 2))}
                           {item.waterResistant && ' 💧'}
                           {item.windResistant && ' 🌬️'}
                         </div>
                       </div>
                     </div>
-                    <button
-                      onClick={() => onDeleteItem(item.id)}
-                      className="text-red-400 hover:text-red-600 p-2"
-                    >
-                      <Trash2 size={18} />
+                    <button onClick={() => onDeleteItem(item.id)} className="w-8 h-8 rounded-full bg-red-500/20 hover:bg-red-500/40 flex items-center justify-center text-red-300">
+                      <Trash2 size={16} />
                     </button>
                   </div>
                 ))}
               </div>
             </div>
           )
-        ))}
+        )}
       </div>
     </div>
   );
 }
 
-function HistoryView({ history, onBack }: {
-  history: Outfit[];
-  onBack: () => void;
-}) {
+function HistoryView({ history, onBack }: { history: Outfit[]; onBack: () => void; }) {
   return (
-    <div className="p-4">
-      <button onClick={onBack} className="text-gray-500 hover:text-gray-700 mb-4">← 返回</button>
+    <div className="animate-fade-in">
+      <button onClick={onBack} className="text-white/70 hover:text-white mb-6 flex items-center gap-1">← 返回</button>
+      <h2 className="text-2xl font-semibold text-white mb-6">穿搭历史</h2>
       
       {history.length === 0 ? (
-        <div className="text-center text-gray-500 py-8">还没有穿搭记录</div>
+        <div className="text-center py-12 text-white/50">
+          <div className="text-4xl mb-3">📝</div>
+          还没有穿搭记录
+        </div>
       ) : (
         <div className="space-y-3">
           {history.map((outfit) => (
-            <div key={outfit.id} className="bg-white p-4 rounded-xl border border-gray-200">
-              <div className="text-sm text-gray-400 mb-2">
+            <div key={outfit.id} className="glass-card p-4">
+              <div className="text-white/50 text-sm mb-2">
                 {new Date(outfit.createdAt).toLocaleDateString('zh-CN')}
-                {' · '}
+                <span className="mx-2">·</span>
                 {outfit.scene === 'commute' ? '通勤' : '跑步'}
-                {' · '}
+                <span className="mx-2">·</span>
                 {outfit.weatherSnapshot.temp}°C
               </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-2xl">{outfit.top?.name}</span>
-                <span className="text-gray-300">+</span>
-                <span className="text-2xl">{outfit.bottom?.name}</span>
-                <span className="text-gray-300">+</span>
-                <span className="text-2xl">{outfit.shoes?.name}</span>
+              <div className="flex items-center gap-2 flex-wrap text-white">
+                <span>{outfit.top?.name}</span>
+                <span className="text-white/30">+</span>
+                <span>{outfit.bottom?.name}</span>
               </div>
             </div>
           ))}
@@ -427,100 +398,72 @@ function SettingsView({ preferences, onBack, onSave }: {
   };
 
   return (
-    <div className="p-4">
-      <button onClick={onBack} className="text-gray-500 hover:text-gray-700 mb-4">← 返回</button>
+    <div className="animate-fade-in">
+      <button onClick={onBack} className="text-white/70 hover:text-white mb-6 flex items-center gap-1">← 返回</button>
+      <h2 className="text-2xl font-semibold text-white mb-6">个性化设置</h2>
       
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="bg-white p-4 rounded-xl border border-gray-200 space-y-4">
-          <h3 className="font-medium text-gray-900">基本设置</h3>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="glass-card p-5 space-y-5">
+          <div className="flex items-center gap-3 mb-4">
+            <MapPin className="text-blue-400" size={20} />
+            <h3 className="text-white font-semibold">基本设置</h3>
+          </div>
           
           <div>
-            <label className="text-sm text-gray-600">所在城市</label>
+            <label className="text-white/70 text-sm">所在城市</label>
             <input
               type="text"
               value={formData.location}
               onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
-              className="w-full p-2 border border-gray-300 rounded-lg mt-1"
+              className="w-full p-3 mt-2 bg-white/10 border border-white/20 rounded-xl text-white"
               placeholder="如：北京"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm text-gray-600">通勤距离(km)</label>
-              <input
-                type="number"
-                value={formData.commuteDistance}
-                onChange={(e) => setFormData(prev => ({ ...prev, commuteDistance: parseFloat(e.target.value) }))}
-                className="w-full p-2 border border-gray-300 rounded-lg mt-1"
-              />
+              <label className="text-white/70 text-sm">通勤距离(km)</label>
+              <input type="number" value={formData.commuteDistance} onChange={(e) => setFormData(prev => ({ ...prev, commuteDistance: parseFloat(e.target.value) }))} className="w-full p-3 mt-2 bg-white/10 border border-white/20 rounded-xl text-white" />
             </div>
             <div>
-              <label className="text-sm text-gray-600">跑步距离(km)</label>
-              <input
-                type="number"
-                value={formData.runDistance}
-                onChange={(e) => setFormData(prev => ({ ...prev, runDistance: parseFloat(e.target.value) }))}
-                className="w-full p-2 border border-gray-300 rounded-lg mt-1"
-              />
+              <label className="text-white/70 text-sm">跑步距离(km)</label>
+              <input type="number" value={formData.runDistance} onChange={(e) => setFormData(prev => ({ ...prev, runDistance: parseFloat(e.target.value) }))} className="w-full p-3 mt-2 bg-white/10 border border-white/20 rounded-xl text-white" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-gray-200 space-y-4">
-          <h3 className="font-medium text-gray-900">体感偏好</h3>
+        <div className="glass-card p-5 space-y-5">
+          <div className="flex items-center gap-3 mb-4">
+            <Settings className="text-purple-400" size={20} />
+            <h3 className="text-white font-semibold">体感偏好</h3>
+          </div>
           
           <div>
-            <label className="text-sm text-gray-600">怕冷程度: {formData.coldSensitivity}/5</label>
-            <input
-              type="range"
-              min="1"
-              max="5"
-              value={formData.coldSensitivity}
-              onChange={(e) => setFormData(prev => ({ ...prev, coldSensitivity: parseInt(e.target.value) }))}
-              className="w-full mt-1"
-            />
+            <label className="text-white/70 text-sm">怕冷程度: {formData.coldSensitivity}/5</label>
+            <input type="range" min="1" max="5" value={formData.coldSensitivity} onChange={(e) => setFormData(prev => ({ ...prev, coldSensitivity: parseInt(e.target.value) }))} className="w-full mt-2 accent-white" />
           </div>
 
           <div>
-            <label className="text-sm text-gray-600">怕热程度: {formData.hotSensitivity}/5</label>
-            <input
-              type="range"
-              min="1"
-              max="5"
-              value={formData.hotSensitivity}
-              onChange={(e) => setFormData(prev => ({ ...prev, hotSensitivity: parseInt(e.target.value) }))}
-              className="w-full mt-1"
-            />
+            <label className="text-white/70 text-sm">怕热程度: {formData.hotSensitivity}/5</label>
+            <input type="range" min="1" max="5" value={formData.hotSensitivity} onChange={(e) => setFormData(prev => ({ ...prev, hotSensitivity: parseInt(e.target.value) }))} className="w-full mt-2 accent-white" />
           </div>
 
           <div>
-            <label className="text-sm text-gray-600">出汗程度</label>
-            <select
-              value={formData.sweatLevel}
-              onChange={(e) => setFormData(prev => ({ ...prev, sweatLevel: e.target.value as any }))}
-              className="w-full p-2 border border-gray-300 rounded-lg mt-1"
-            >
-              <option value="low">少汗</option>
-              <option value="medium">中等</option>
-              <option value="high">多汗</option>
+            <label className="text-white/70 text-sm">出汗程度</label>
+            <select value={formData.sweatLevel} onChange={(e) => setFormData(prev => ({ ...prev, sweatLevel: e.target.value as any }))} className="w-full p-3 mt-2 bg-white/10 border border-white/20 rounded-xl text-white">
+              <option value="low" className="bg-gray-800">少汗</option>
+              <option value="medium" className="bg-gray-800">中等</option>
+              <option value="high" className="bg-gray-800">多汗</option>
             </select>
           </div>
 
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-600">对风敏感</span>
-            <input
-              type="checkbox"
-              checked={formData.windSensitivity}
-              onChange={(e) => setFormData(prev => ({ ...prev, windSensitivity: e.target.checked }))}
-            />
-          </div>
+          <label className="flex items-center justify-between text-white/80">
+            <span>对风敏感</span>
+            <input type="checkbox" checked={formData.windSensitivity} onChange={(e) => setFormData(prev => ({ ...prev, windSensitivity: e.target.checked }))} className="accent-white w-5 h-5" />
+          </label>
         </div>
 
-        <button
-          type="submit"
-          className="w-full py-3 bg-primary-600 text-white rounded-xl font-medium hover:bg-primary-700"
-        >
+        <button type="submit" className="w-full py-4 bg-white/20 hover:bg-white/30 text-white rounded-2xl font-medium transition-all">
           保存设置
         </button>
       </form>

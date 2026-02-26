@@ -45,16 +45,16 @@ export default function ClothingCard({ item, label, onReplace }: ClothingCardPro
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-3 shadow-sm">
-      <div className="flex items-start justify-between mb-2">
-        <span className="text-xs text-gray-400">{label}</span>
-        <button
-          onClick={onReplace}
-          className="text-gray-400 hover:text-primary-600 transition-colors"
-          title="替换"
-        >
-          <RefreshCw size={14} />
-        </button>
+    <div className="glass-card p-4 relative group">
+      <button
+        onClick={onReplace}
+        className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/10 hover:bg-white/30 flex items-center justify-center text-white/60 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+      >
+        <RefreshCw size={14} />
+      </button>
+      
+      <div className="text-white/50 text-xs font-medium mb-3 uppercase tracking-wider">
+        {label}
       </div>
       
       <div className="flex items-center gap-3">
@@ -62,21 +62,23 @@ export default function ClothingCard({ item, label, onReplace }: ClothingCardPro
           <img
             src={item.imageUrl}
             alt={item.name}
-            className="w-14 h-14 rounded-lg object-cover bg-gray-100"
+            className="w-14 h-14 rounded-xl object-cover bg-white/10"
           />
         ) : (
-          <div className="w-14 h-14 rounded-lg bg-gray-100 flex items-center justify-center text-2xl">
+          <div className="w-14 h-14 rounded-xl bg-white/10 flex items-center justify-center text-3xl">
             {getCategoryEmoji(item.category)}
           </div>
         )}
         
         <div className="flex-1 min-w-0">
-          <div className="font-medium text-gray-900 truncate">{item.name}</div>
-          <div className="text-xs text-gray-500">{getSubCategoryLabel(item.subCategory)}</div>
-          <div className="flex items-center gap-1 mt-1">
-            <span className="text-xs">{'🔥'.repeat(Math.max(1, Math.min(5, Math.ceil(item.warmthLevel / 2))))}</span>
-            {item.waterResistant && <span className="text-xs">💧</span>}
-            {item.windResistant && <span className="text-xs">🌬️</span>}
+          <div className="text-white font-medium truncate text-base">{item.name}</div>
+          <div className="text-white/50 text-sm">{getSubCategoryLabel(item.subCategory)}</div>
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <span className="text-sm">
+              {'🔥'.repeat(Math.max(1, Math.min(3, Math.ceil(item.warmthLevel / 3))))}
+            </span>
+            {item.waterResistant && <span className="text-xs bg-blue-500/30 text-blue-200 px-1.5 py-0.5 rounded">防水</span>}
+            {item.windResistant && <span className="text-xs bg-gray-500/30 text-gray-200 px-1.5 py-0.5 rounded">防风</span>}
           </div>
         </div>
       </div>
