@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { ClothingItem, Outfit, UserPreferences } from '@/types';
+import { ClothingItem, Outfit, UserPreferences, ClothingCategory, ClothingSubCategory } from '@/types';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -87,11 +87,11 @@ export async function getClothingItems(): Promise<ClothingItem[]> {
   
   const rows = (data || []) as ClothingItemRow[];
   
-  return rows.map((item: ClothingItemRow) => ({
+  return rows.map((item) => ({
     id: item.id,
     name: item.name,
-    category: item.category,
-    subCategory: item.sub_category,
+    category: item.category as ClothingCategory,
+    subCategory: item.sub_category as ClothingSubCategory,
     warmthLevel: item.warmth_level,
     waterResistant: item.water_resistant,
     windResistant: item.wind_resistant,
