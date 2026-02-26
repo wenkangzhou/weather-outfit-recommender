@@ -24,11 +24,7 @@ export default function OutfitTab() {
   const [replacingItem, setReplacingItem] = useState<'top' | 'bottom' | 'socks' | 'shoes' | null>(null);
 
   // Load data
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -78,7 +74,11 @@ export default function OutfitTab() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const getDefaultPreferences = (): UserPreferences => ({
     id: 'default',
@@ -140,7 +140,7 @@ export default function OutfitTab() {
       <div className="p-8 text-center">
         <div className="text-6xl mb-4">👕</div>
         <h3 className="text-lg font-medium text-gray-900 mb-2">还没有录入衣服</h3>
-        <p className="text-gray-500 mb-4">先去"我的"页面录入你的衣柜吧</p>
+        <p className="text-gray-500 mb-4">先去「我的」页面录入你的衣柜吧</p>
       </div>
     );
   }
