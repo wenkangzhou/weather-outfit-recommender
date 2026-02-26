@@ -139,8 +139,8 @@ export async function addClothingItem(item: Omit<ClothingItem, 'id' | 'createdAt
   return {
     id: record.id,
     name: record.name,
-    category: record.category,
-    subCategory: record.sub_category,
+    category: record.category as ClothingCategory,
+    subCategory: record.sub_category as ClothingSubCategory,
     warmthLevel: record.warmth_level,
     waterResistant: record.water_resistant,
     windResistant: record.wind_resistant,
