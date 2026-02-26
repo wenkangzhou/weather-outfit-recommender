@@ -45,12 +45,12 @@ const first = <T>(data: T[] | null): T | null => {
   return data && data.length > 0 ? data[0] : null;
 };
 
-// Database row types
+// Database row types (use any for flexibility)
 interface ClothingItemRow {
   id: string;
   name: string;
-  category: string;
-  sub_category: string;
+  category: any;
+  sub_category: any;
   warmth_level: number;
   water_resistant: boolean;
   wind_resistant: boolean;
