@@ -24,7 +24,7 @@
 
 ```bash
 cd feel_today
-pnpm install
+npm install
 ```
 
 ### 2. 配置环境变量
@@ -49,7 +49,7 @@ cp .env.local.example .env.local
 ### 4. 运行开发服务器
 
 ```bash
-pnpm dev
+npm run dev
 ```
 
 访问 http://localhost:3000
@@ -59,7 +59,7 @@ pnpm dev
 ### 方法一：Vercel CLI
 
 ```bash
-pnpm add -g vercel
+npm install -g vercel
 vercel
 ```
 
