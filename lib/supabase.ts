@@ -40,7 +40,7 @@ const setDemoPrefs = (prefs: UserPreferences) => {
   localStorage.setItem('demo_preferences', JSON.stringify(prefs));
 };
 
-// Helper to get first item from array response
+// Helper: get first item from array response
 const first = <T>(data: T[] | null): T | null => {
   return data && data.length > 0 ? data[0] : null;
 };
@@ -302,3 +302,4 @@ export async function uploadClothingImage(file: File): Promise<string> {
   const { data } = supabase.storage.from('clothing-images').getPublicUrl(fileName);
   return data.publicUrl;
 }
+
