@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import { MapPin, Navigation, RefreshCw, ChevronDown, Wind, Droplets, CloudRain } from 'lucide-react';
+import { MapPin, Navigation, RefreshCw, ChevronDown, Wind, Droplets, Plus, Shirt, ArrowRight } from 'lucide-react';
 import { ClothingItem, WeatherData, OutfitRecommendation, OutfitScene, UserPreferences, RunType } from '@/types';
 import { getMockWeather } from '@/lib/weather';
 import { generateRecommendation } from '@/lib/recommendation';
@@ -23,13 +24,35 @@ const RUN_TYPES: { type: RunType; label: string; shortLabel: string; desc: strin
   { type: 'interval', label: '间歇跑', shortLabel: '间歇', desc: '速度快产热多，跑后注意保暖' },
 ];
 
+// 检查衣柜是否完整
+function checkWardrobeCompleteness(items: ClothingItem[]) {
+  const hasTop = items.some(i => i.category === 'top');
+  const hasBottom = items.some(i => i.category === 'bottom');
+  const hasSocks = items.some(i => i.category === 'socks');
+  const hasShoes = items.some(i => i.category === 'shoes');
+  
+  const total = items.length;
+  const isEmpty = total === 0;
+  const isComplete = hasTop && hasBottom && hasSocks && hasShoes;
+  const missingCategories = [
+    !hasTop && '上衣',
+    !hasBottom && '下装',
+    !hasSocks && '袜子',
+    !hasShoes && '鞋子',
+  ].filter(Boolean) as string[];
+  
+  return { isEmpty, isComplete, hasTop, hasBottom, hasSocks, hasShoes, missingCategories, total };
+}
+
 export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
+  const router = useRouter();
   const { t } = useTranslation();
   const [scene, setScene] = useState<OutfitScene>('commute');
   const [runType, setRunType] = useState<RunType>('easy');
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
   const [recommendation, setRecommendation] = useState<OutfitRecommendation | null>(null);
+  const [allItems, setAllItems] = useState<ClothingItem[]>([]);
   const [wardrobe, setWardrobe] = useState<{
     tops: ClothingItem[];
     bottoms: ClothingItem[];
@@ -39,6 +62,7 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [showAlternatives, setShowAlternatives] = useState(false);
+  const [showWeatherDetails, setShowWeatherDetails] = useState(false);
   const [replacingItem, setReplacingItem] = useState<'top' | 'bottom' | 'socks' | 'shoes' | null>(null);
 
   useEffect(() => {
@@ -57,6 +81,8 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
       }
       
       const items = await getClothingItems();
+      setAllItems(items);
+      
       const wardrobeData = {
         tops: items.filter(i => i.category === 'top'),
         bottoms: items.filter(i => i.category === 'bottom'),
@@ -65,7 +91,9 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
       };
       setWardrobe(wardrobeData);
       
-      if (items.length > 0) {
+      // 只有衣柜完整才生成推荐
+      const completeness = checkWardrobeCompleteness(items);
+      if (completeness.isComplete) {
         const rec = generateRecommendation(
           wardrobeData,
           weather,
@@ -74,6 +102,8 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
           runType
         );
         setRecommendation(rec);
+      } else {
+        setRecommendation(null);
       }
     } catch (error) {
       console.error('Failed to load data:', error);
@@ -93,10 +123,10 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
   });
 
   const generateNewRecommendation = useCallback(() => {
-    if (!weather || wardrobe.tops.length === 0) return;
+    if (!weather || !checkWardrobeCompleteness(allItems).isComplete) return;
     const rec = generateRecommendation(wardrobe, weather, preferences || getDefaultPreferences(), scene, runType);
     setRecommendation(rec);
-  }, [weather, wardrobe, preferences, scene, runType]);
+  }, [weather, wardrobe, preferences, scene, runType, allItems]);
 
   const handleReplace = (category: 'top' | 'bottom' | 'socks' | 'shoes') => {
     setReplacingItem(category);
@@ -112,6 +142,8 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
     setShowAlternatives(false);
     setReplacingItem(null);
   };
+
+  const wardrobeStatus = checkWardrobeCompleteness(allItems);
 
   // 生成天气提示
   const getWeatherTips = (): string[] => {
@@ -149,25 +181,182 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
     );
   }
 
-  if (wardrobe.tops.length === 0) {
+  // ===== 衣柜为空状态 =====
+  if (wardrobeStatus.isEmpty) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[70vh] text-center px-5 animate-fade-in">
-        <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center text-3xl mb-4">
-          👕
+      <div className="min-h-screen pb-28 animate-fade-in">
+        {/* Header */}
+        <header className="pt-12 px-5 flex items-center justify-between">
+          <button 
+            onClick={() => setShowLocationPicker(true)}
+            className="flex items-center gap-1.5 text-foreground/80 hover:text-foreground transition-colors"
+          >
+            <MapPin size={16} />
+            <span className="font-medium">
+              {weather?.cityName || preferences?.location || t('status.locating')}
+            </span>
+            <ChevronDown size={14} className="text-muted-foreground" />
+          </button>
+        </header>
+
+        {/* Empty State */}
+        <div className="flex flex-col items-center justify-center min-h-[70vh] px-5">
+          <div className="w-24 h-24 rounded-3xl bg-muted flex items-center justify-center text-5xl mb-6">
+            👕
+          </div>
+          <h3 className="text-xl font-semibold mb-2">衣柜还是空的</h3>
+          <p className="text-sm text-muted-foreground text-center max-w-xs mb-8">
+            请先录入你的衣物，我才能为你推荐今日穿搭
+          </p>
+          <Button 
+            size="lg" 
+            className="h-14 px-8 text-base"
+            onClick={() => router.push('/wardrobe')}
+          >
+            <Plus size={20} className="mr-2" />
+            去录入衣物
+          </Button>
         </div>
-        <h3 className="text-lg font-medium mb-2">{t('outfit.emptyWardrobe')}</h3>
-        <p className="text-sm text-muted-foreground max-w-xs">
-          {t('outfit.emptyWardrobeDesc')}
-        </p>
+
+        {/* Location Picker */}
+        {showLocationPicker && (
+          <CityPicker
+            currentCity={weather?.cityName || preferences?.location || '上海'}
+            onSelect={(city) => {
+              const newWeather = { ...weather!, cityName: city };
+              setWeather(newWeather);
+            }}
+            onClose={() => setShowLocationPicker(false)}
+          />
+        )}
       </div>
     );
   }
 
+  // ===== 衣柜不完整状态 =====
+  if (!wardrobeStatus.isComplete) {
+    return (
+      <div className="min-h-screen pb-28 animate-fade-in">
+        {/* Header */}
+        <header className="pt-12 px-5 flex items-center justify-between">
+          <button 
+            onClick={() => setShowLocationPicker(true)}
+            className="flex items-center gap-1.5 text-foreground/80 hover:text-foreground transition-colors"
+          >
+            <MapPin size={16} />
+            <span className="font-medium">
+              {weather?.cityName || preferences?.location || t('status.locating')}
+            </span>
+            <ChevronDown size={14} className="text-muted-foreground" />
+          </button>
+
+          {/* Scene Toggle */}
+          <div className="flex bg-muted rounded-full p-1">
+            <SceneButton 
+              active={scene === 'commute'} 
+              onClick={() => setScene('commute')}
+              label={t('scene.commute')}
+            />
+            <SceneButton 
+              active={scene === 'running'} 
+              onClick={() => setScene('running')}
+              label={t('scene.running')}
+            />
+          </div>
+        </header>
+
+        {/* Weather Summary */}
+        {weather && (
+          <section className="pt-6 pb-4 px-5">
+            <div className="data-large text-foreground">{weather.temp}°</div>
+            <div className="text-muted-foreground">{weather.description} · 体感 {weather.feelsLike}°</div>
+          </section>
+        )}
+
+        {/* Incomplete Wardrobe Notice */}
+        <div className="px-5">
+          <Card className="p-6 border-dashed border-2">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
+                <Shirt size={24} className="text-amber-500" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold mb-1">衣柜还不完整</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  缺少: {wardrobeStatus.missingCategories.join('、')}
+                </p>
+                <Button 
+                  variant="secondary" 
+                  className="w-full"
+                  onClick={() => router.push('/wardrobe')}
+                >
+                  <Plus size={16} className="mr-2" />
+                  去补充衣物
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* Existing Items Preview */}
+        <section className="px-5 pt-6">
+          <div className="label-uppercase mb-4">已录入的衣物</div>
+          <div className="space-y-4">
+            {wardrobeStatus.hasTop && (
+              <WardrobeCategoryRow 
+                icon="👕" 
+                label="上衣" 
+                count={wardrobe.tops.length}
+                items={wardrobe.tops.slice(0, 3)}
+              />
+            )}
+            {wardrobeStatus.hasBottom && (
+              <WardrobeCategoryRow 
+                icon="👖" 
+                label="下装" 
+                count={wardrobe.bottoms.length}
+                items={wardrobe.bottoms.slice(0, 3)}
+              />
+            )}
+            {wardrobeStatus.hasSocks && (
+              <WardrobeCategoryRow 
+                icon="🧦" 
+                label="袜子" 
+                count={wardrobe.socks.length}
+                items={wardrobe.socks.slice(0, 3)}
+              />
+            )}
+            {wardrobeStatus.hasShoes && (
+              <WardrobeCategoryRow 
+                icon="👟" 
+                label="鞋子" 
+                count={wardrobe.shoes.length}
+                items={wardrobe.shoes.slice(0, 3)}
+              />
+            )}
+          </div>
+        </section>
+
+        {/* Location Picker */}
+        {showLocationPicker && (
+          <CityPicker
+            currentCity={weather?.cityName || preferences?.location || '上海'}
+            onSelect={(city) => {
+              const newWeather = { ...weather!, cityName: city };
+              setWeather(newWeather);
+            }}
+            onClose={() => setShowLocationPicker(false)}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // ===== 正常状态：显示穿搭推荐 =====
   return (
     <div className="min-h-screen pb-28 animate-fade-in">
-      {/* Header - Location & Scene Toggle */}
+      {/* Compact Header */}
       <header className="pt-12 px-5 flex items-center justify-between">
-        {/* Location Picker */}
         <button 
           onClick={() => setShowLocationPicker(true)}
           className="flex items-center gap-1.5 text-foreground/80 hover:text-foreground transition-colors"
@@ -194,114 +383,99 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
         </div>
       </header>
 
-      {/* Weather Section */}
-      <section className="pt-6 pb-6 px-5">
-        {/* Temperature */}
+      {/* Main Outfit Display - Core Area */}
+      <section className="pt-4 px-5">
+        {/* Temperature Display */}
         {weather && (
+          <div className="text-center mb-6">
+            <div className="data-large text-foreground">{weather.temp}°</div>
+            <div className="text-muted-foreground">{weather.description}</div>
+          </div>
+        )}
+
+        {/* Run Type Selector (only for running) */}
+        {scene === 'running' && (
           <div className="mb-6">
-            <div className="data-large text-foreground">
-              {weather.temp}°
+            <div className="flex gap-2">
+              {RUN_TYPES.map((run) => (
+                <button
+                  key={run.type}
+                  onClick={() => setRunType(run.type)}
+                  className={`flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all ${
+                    runType === run.type
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {run.label}
+                </button>
+              ))}
             </div>
-            <div className="flex items-center justify-between mt-1">
-              <div>
-                <div className="text-lg text-foreground/80">{weather.description}</div>
-                <div className="text-sm text-muted-foreground">
-                  体感 {weather.feelsLike}° · {t('weather.tempHigh')} {weather.temp + 3}°
-                </div>
-              </div>
-              <div className="text-5xl">
-                {weather.isRaining ? '🌧️' : weather.weatherCode >= 801 ? '☁️' : '☀️'}
-              </div>
+            <div className="mt-2 text-xs text-muted-foreground text-center">
+              {RUN_TYPES.find(r => r.type === runType)?.desc}
             </div>
           </div>
         )}
 
-        {/* Weather Details */}
-        <div className="flex gap-3">
-          <WeatherBadge icon={<Wind size={14} />} value={`${Math.round(weather?.windSpeed || 0)}m/s`} label="风速" />
-          <WeatherBadge icon={<Droplets size={14} />} value={`${weather?.humidity || 0}%`} label="湿度" />
-        </div>
-
-        {/* Weather Tips */}
-        {weatherTips.length > 0 && (
-          <div className="mt-4 space-y-2">
-            {weatherTips.map((tip, index) => (
-              <div key={index} className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400">
-                <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                {tip}
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* Run Type Selector - Only for Running Scene */}
-      {scene === 'running' && (
-        <section className="px-5 mb-6">
-          <div className="label-uppercase mb-3">课表类型</div>
-          <div className="flex gap-2">
-            {RUN_TYPES.map((run) => (
-              <button
-                key={run.type}
-                onClick={() => setRunType(run.type)}
-                className={`flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all ${
-                  runType === run.type
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {run.label}
-              </button>
-            ))}
-          </div>
-          
-          {/* Run Type Description */}
-          <div className="mt-3 text-sm text-muted-foreground">
-            {RUN_TYPES.find(r => r.type === runType)?.desc}
-          </div>
-        </section>
-      )}
-
-      {/* 3D Scene Placeholder */}
-      <section className="px-5 mb-6">
-        <Card className="h-52 flex flex-col items-center justify-center relative overflow-hidden border-border/50 bg-gradient-to-b from-muted/50 to-muted">
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-28 h-28 rounded-2xl bg-background/50 border border-border flex items-center justify-center text-5xl">
-              👔
-            </div>
-          </div>
-          
-          {recommendation && (
-            <div className="absolute bottom-4 left-4 right-4 surface-glass p-4">
-              <p className="text-sm text-foreground/80 leading-relaxed">
-                {recommendation.reasoning}
-              </p>
-            </div>
-          )}
-        </Card>
-      </section>
-
-      {/* Outfit Section */}
-      <section className="px-5 space-y-4">
-        <div className="label-uppercase">{t('outfit.todayOutfit')}</div>
-        
-        {recommendation && (
+        {/* Outfit Recommendation - Main Content */}
+        <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
-            <ClothingCard item={recommendation.outfit.top} label={t('clothing.top')} onReplace={() => handleReplace('top')} />
-            <ClothingCard item={recommendation.outfit.bottom} label={t('clothing.bottom')} onReplace={() => handleReplace('bottom')} />
-            <ClothingCard item={recommendation.outfit.socks} label={t('clothing.socks')} onReplace={() => handleReplace('socks')} />
-            <ClothingCard item={recommendation.outfit.shoes} label={t('clothing.shoes')} onReplace={() => handleReplace('shoes')} />
+            <ClothingCard item={recommendation?.outfit.top} label={t('clothing.top')} onReplace={() => handleReplace('top')} />
+            <ClothingCard item={recommendation?.outfit.bottom} label={t('clothing.bottom')} onReplace={() => handleReplace('bottom')} />
+            <ClothingCard item={recommendation?.outfit.socks} label={t('clothing.socks')} onReplace={() => handleReplace('socks')} />
+            <ClothingCard item={recommendation?.outfit.shoes} label={t('clothing.shoes')} onReplace={() => handleReplace('shoes')} />
+          </div>
+
+          {/* Reasoning */}
+          {recommendation && (
+            <Card className="p-4 bg-primary/5 border-primary/20">
+              <p className="text-sm text-foreground/80">{recommendation.reasoning}</p>
+            </Card>
+          )}
+
+          {/* Refresh Button */}
+          <Button
+            onClick={generateNewRecommendation}
+            variant="secondary"
+            className="w-full h-12"
+          >
+            <RefreshCw size={16} className="mr-2" />
+            {t('outfit.refresh')}
+          </Button>
+        </div>
+      </section>
+
+      {/* Collapsible Weather Details */}
+      <section className="px-5 mt-6">
+        <button
+          onClick={() => setShowWeatherDetails(!showWeatherDetails)}
+          className="flex items-center justify-between w-full py-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <span>天气详情</span>
+          <ChevronDown size={16} className={`transition-transform ${showWeatherDetails ? 'rotate-180' : ''}`} />
+        </button>
+
+        {showWeatherDetails && weather && (
+          <div className="space-y-4 animate-fade-in">
+            {/* Weather Metrics */}
+            <div className="flex gap-3">
+              <WeatherBadge icon={<Wind size={14} />} value={`${Math.round(weather.windSpeed)}m/s`} label="风速" />
+              <WeatherBadge icon={<Droplets size={14} />} value={`${weather.humidity}%`} label="湿度" />
+            </div>
+
+            {/* Weather Tips */}
+            {weatherTips.length > 0 && (
+              <div className="space-y-2">
+                {weatherTips.map((tip, index) => (
+                  <div key={index} className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400">
+                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    {tip}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
-
-        <Button
-          onClick={generateNewRecommendation}
-          variant="secondary"
-          className="w-full h-12"
-        >
-          <RefreshCw size={16} className="mr-2" />
-          {t('outfit.refresh')}
-        </Button>
       </section>
 
       {/* Location Picker Modal */}
@@ -309,7 +483,6 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
         <CityPicker
           currentCity={weather?.cityName || preferences?.location || '上海'}
           onSelect={(city) => {
-            // Update weather with new city
             const newWeather = { ...weather!, cityName: city };
             setWeather(newWeather);
           }}
@@ -347,6 +520,34 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
           </Card>
         </div>
       )}
+    </div>
+  );
+}
+
+// ===== Helper Components =====
+
+function WardrobeCategoryRow({ icon, label, count, items }: {
+  icon: string;
+  label: string;
+  count: number;
+  items: ClothingItem[];
+}) {
+  return (
+    <div className="flex items-center gap-4 p-4 bg-card border border-border rounded-xl">
+      <span className="text-2xl">{icon}</span>
+      <div className="flex-1">
+        <div className="flex items-center justify-between mb-1">
+          <span className="font-medium">{label}</span>
+          <span className="text-sm text-muted-foreground">{count} 件</span>
+        </div>
+        <div className="flex gap-1">
+          {items.map((item, idx) => (
+            <span key={idx} className="text-xs text-muted-foreground">{item.name}{idx < items.length - 1 ? '、' : ''}</span>
+          ))}
+          {count > 3 && <span className="text-xs text-muted-foreground">等</span>}
+        </div>
+      </div>
+      <ArrowRight size={16} className="text-muted-foreground" />
     </div>
   );
 }
