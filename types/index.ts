@@ -3,7 +3,7 @@ export type ClothingCategory = 'top' | 'bottom' | 'socks' | 'shoes' | 'hat';
 export type ClothingSubCategory = 
   // 上衣
   | 't-shirt' | 'long-sleeve' | 'sweater' | 'hoodie' | 'jacket' | 'down-jacket' | 'windbreaker'
-  | 'fleece' | 'cotton-padded' | 'wind-shirt' | 'shirt'
+  | 'fleece' | 'cotton-padded' | 'wind-shirt' | 'shirt' | 'tank-top'
   // 下装
   | 'shorts' | 'half-tights' | 'pants'
   // 袜子
@@ -55,10 +55,33 @@ export interface Outfit {
   hat?: ClothingItem; // 帽子可选
   scene: OutfitScene;
   runType?: RunType; // 跑步类型
-  weatherSnapshot: WeatherData;
+  weatherSnapshot?: WeatherData;
   note?: string;
   createdAt: string;
   rating?: number; // 1-5, user feedback
+}
+
+// Outfit History - 穿搭历史记录
+export interface OutfitHistoryItem {
+  id: string;
+  items: {
+    top: ClothingItem;
+    bottom: ClothingItem;
+    socks: ClothingItem;
+    shoes: ClothingItem;
+    hat?: ClothingItem;
+    scene: OutfitScene;
+    runType?: RunType;
+    weatherSnapshot?: WeatherData;
+  };
+  weatherData: WeatherData; // 当时的天气数据
+  locationName: string; // 地点
+  scene: OutfitScene;
+  runType?: RunType;
+  wornAt: string; // 穿着时间
+  createdAt: string;
+  comfortRating?: number; // 舒适度评分 1-5
+  notes?: string; // 用户备注
 }
 
 // User preferences - 大幅简化
@@ -68,7 +91,7 @@ export interface UserPreferences {
   defaultRunType: RunType; // 默认跑步类型
 }
 
-// History entry
+// Legacy History entry (kept for compatibility)
 export interface OutfitHistory {
   id: string;
   outfit: Outfit;
@@ -80,7 +103,16 @@ export interface OutfitHistory {
 
 // Recommendation with reasoning
 export interface OutfitRecommendation {
-  outfit: Omit<Outfit, 'id' | 'createdAt'>;
+  outfit: {
+    top: ClothingItem;
+    bottom: ClothingItem;
+    socks: ClothingItem;
+    shoes: ClothingItem;
+    hat?: ClothingItem;
+    scene: OutfitScene;
+    runType?: RunType;
+    weatherSnapshot: WeatherData;
+  };
   reasoning: string;
   weatherTips: string[]; // 天气提示：风大、湿度大、下雨等
   alternatives?: {

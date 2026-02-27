@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import { X, Plus, ChevronLeft, Pencil, Trash2, MoreVertical } from 'lucide-react';
+import { X, Plus, ChevronLeft, Pencil, Trash2, ChevronDown } from 'lucide-react';
 import { ClothingItem, ClothingCategory, ClothingSubCategory } from '@/types';
 import { getClothingItems, addClothingItem, updateClothingItem, deleteClothingItem } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
@@ -32,6 +32,7 @@ const SUB_CATEGORIES: Record<ClothingCategory, { type: ClothingSubCategory; labe
     { type: 'windbreaker', label: '冲锋衣' },
     { type: 'wind-shirt', label: '皮肤衣' },
     { type: 'shirt', label: '衬衫' },
+    { type: 'tank-top', label: '背心' },
   ],
   bottom: [
     { type: 'shorts', label: '短裤' },
@@ -62,6 +63,8 @@ const USAGE_OPTIONS: { value: 'commute' | 'running' | 'both'; label: string }[] 
   { value: 'both', label: '两者皆可' },
 ];
 
+const INITIAL_SHOW_COUNT = 4;
+
 export default function WardrobePage() {
   return (
     <ThemeProvider>
@@ -74,13 +77,28 @@ export default function WardrobePage() {
 
 function WardrobeContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const from = searchParams.get('from');
   const { t } = useTranslation();
   const [items, setItems] = useState<ClothingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingItem, setEditingItem] = useState<ClothingItem | null>(null);
   const [deletingItem, setDeletingItem] = useState<ClothingItem | null>(null);
+  const [defaultCategory, setDefaultCategory] = useState<ClothingCategory | undefined>(undefined);
   const [mounted, setMounted] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+
+  // 返回按钮处理：根据来源决定返回目标
+  const handleBack = () => {
+    if (from === 'settings') {
+      // 返回到首页并自动切换到设置页
+      router.push('/?tab=settings');
+    } else {
+      // 默认返回首页
+      router.push('/');
+    }
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -111,6 +129,13 @@ function WardrobeContent() {
     setDeletingItem(null);
   };
 
+  const toggleCategory = (categoryType: string) => {
+    setExpandedCategories(prev => ({
+      ...prev,
+      [categoryType]: !prev[categoryType]
+    }));
+  };
+
   const groupedItems = {
     top: items.filter(i => i.category === 'top'),
     bottom: items.filter(i => i.category === 'bottom'),
@@ -123,22 +148,11 @@ function WardrobeContent() {
     <main className="min-h-screen bg-background">
       <div className="max-w-md mx-auto">
         {/* Header */}
-        <header className="pt-12 pb-6 px-5 flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full">
+        <header className="pt-12 pb-4 px-5 flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={handleBack} className="rounded-full">
             <ChevronLeft size={20} />
           </Button>
           <h1 className="text-xl font-semibold">{t('settings.myWardrobe')}</h1>
-          <div className="flex-1" />
-          <Button 
-            size="icon" 
-            className="rounded-full bg-primary"
-            onClick={() => {
-              setEditingItem(null);
-              setShowAddModal(true);
-            }}
-          >
-            <Plus size={20} />
-          </Button>
         </header>
 
         {/* Content */}
@@ -153,94 +167,26 @@ function WardrobeContent() {
                 👕
               </div>
               <p className="text-muted-foreground mb-2">{t('outfit.emptyWardrobe')}</p>
-              <p className="text-sm text-muted-foreground/70">点击右上角 + 添加衣服</p>
+              <p className="text-sm text-muted-foreground/70">点击下方分类添加衣物</p>
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {CATEGORIES.map(cat => (
-                <section key={cat.type}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-lg">{cat.icon}</span>
-                    <span className="text-sm font-medium text-muted-foreground">{cat.label}</span>
-                    <span className="text-xs text-muted-foreground/60">({groupedItems[cat.type].length})</span>
-                  </div>
-                  {groupedItems[cat.type].length > 0 ? (
-                    <div className="grid grid-cols-2 gap-3">
-                      {groupedItems[cat.type].map(item => (
-                        <Card key={item.id} className="p-3 border-border/50 relative group">
-                          {/* Actions Menu */}
-                          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                            <div className="flex gap-1">
-                              <Button
-                                variant="secondary"
-                                size="icon"
-                                className="w-7 h-7 rounded-full"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setEditingItem(item);
-                                  setShowAddModal(true);
-                                }}
-                              >
-                                <Pencil size={12} />
-                              </Button>
-                              <Button
-                                variant="destructive"
-                                size="icon"
-                                className="w-7 h-7 rounded-full"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setDeletingItem(item);
-                                }}
-                              >
-                                <Trash2 size={12} />
-                              </Button>
-                            </div>
-                          </div>
-
-                          <div className="aspect-square rounded-xl bg-muted flex items-center justify-center text-3xl mb-3">
-                            {cat.icon}
-                          </div>
-                          <div className="font-medium text-sm truncate pr-6">{item.name}</div>
-                          <div className="text-xs text-muted-foreground">{t(`types.${item.subCategory}`)}</div>
-                          <div className="flex items-center gap-1 mt-2 flex-wrap">
-                            {item.usage === 'running' && (
-                              <span className="text-[10px] px-1.5 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded">
-                                跑
-                              </span>
-                            )}
-                            {item.usage === 'commute' && (
-                              <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded">
-                                通
-                              </span>
-                            )}
-                            {item.usage === 'both' && (
-                              <span className="text-[10px] px-1.5 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded">
-                                皆可
-                              </span>
-                            )}
-                            {cat.showWaterWind && item.waterResistant && (
-                              <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded">
-                                防水
-                              </span>
-                            )}
-                            {cat.showWaterWind && item.windResistant && (
-                              <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded">
-                                防风
-                              </span>
-                            )}
-                            {item.hasPockets && (
-                              <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded">
-                                口袋
-                              </span>
-                            )}
-                          </div>
-                        </Card>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-sm text-muted-foreground/60 py-2">暂无{cat.label}</div>
-                  )}
-                </section>
+                <CategorySection
+                  key={cat.type}
+                  category={cat}
+                  items={groupedItems[cat.type]}
+                  isExpanded={expandedCategories[cat.type] || false}
+                  onToggle={() => toggleCategory(cat.type)}
+                  onEdit={setEditingItem}
+                  onDelete={setDeletingItem}
+                  onAdd={() => {
+                    setEditingItem(null);
+                    setDefaultCategory(cat.type);
+                    setShowAddModal(true);
+                  }}
+                  t={t}
+                />
               ))}
             </div>
           )}
@@ -251,9 +197,11 @@ function WardrobeContent() {
       {showAddModal && (
         <AddEditItemModal 
           item={editingItem}
+          defaultCategory={defaultCategory}
           onClose={() => {
             setShowAddModal(false);
             setEditingItem(null);
+            setDefaultCategory(undefined);
           }}
           onAdd={handleAddItem}
           onUpdate={handleUpdateItem}
@@ -272,22 +220,165 @@ function WardrobeContent() {
   );
 }
 
+// 分类区块组件
+function CategorySection({
+  category,
+  items,
+  isExpanded,
+  onToggle,
+  onEdit,
+  onDelete,
+  onAdd,
+  t,
+}: {
+  category: typeof CATEGORIES[0];
+  items: ClothingItem[];
+  isExpanded: boolean;
+  onToggle: () => void;
+  onEdit: (item: ClothingItem) => void;
+  onDelete: (item: ClothingItem) => void;
+  onAdd: () => void;
+  t: any;
+}) {
+  const showCount = isExpanded ? items.length : INITIAL_SHOW_COUNT;
+  const displayedItems = items.slice(0, showCount);
+  const hasMore = items.length > INITIAL_SHOW_COUNT;
+
+  return (
+    <Card className="border-border/50 overflow-hidden">
+      {/* Header */}
+      <div className="p-4 flex items-center justify-between border-b border-border/50">
+        <div className="flex items-center gap-2">
+          <span className="text-lg">{category.icon}</span>
+          <span className="font-medium">{category.label}</span>
+          <span className="text-xs text-muted-foreground">({items.length})</span>
+        </div>
+        <Button variant="ghost" size="sm" onClick={onAdd} className="h-8 px-2">
+          <Plus size={16} className="mr-1" />
+          添加
+        </Button>
+      </div>
+
+      {/* Items List */}
+      {items.length > 0 ? (
+        <div className="divide-y divide-border/50">
+          {displayedItems.map((item, index) => (
+            <div
+              key={item.id}
+              className="p-4 flex items-center gap-3 hover:bg-muted/50 transition-colors group"
+            >
+              {/* Index Number */}
+              <span className="text-xs text-muted-foreground w-5">{index + 1}</span>
+
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <div className="font-medium truncate">{item.name}</div>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-xs text-muted-foreground">{t(`types.${item.subCategory}`)}</span>
+                  
+                  {/* Tags */}
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {item.usage === 'running' && (
+                      <span className="text-[10px] px-1.5 py-0.5 bg-gradient-to-r from-orange-400 to-amber-400 text-white rounded font-medium">
+                        跑步
+                      </span>
+                    )}
+                    {item.usage === 'commute' && (
+                      <span className="text-[10px] px-1.5 py-0.5 bg-gradient-to-r from-emerald-400 to-teal-400 text-white rounded font-medium">
+                        通勤
+                      </span>
+                    )}
+                    {item.usage === 'both' && (
+                      <span className="text-[10px] px-1.5 py-0.5 bg-gradient-to-r from-violet-400 to-purple-400 text-white rounded font-medium">
+                        皆可
+                      </span>
+                    )}
+                    {category.showWaterWind && item.waterResistant && (
+                      <span className="text-[10px] px-1.5 py-0.5 bg-gradient-to-r from-blue-400 to-cyan-400 text-white rounded font-medium">
+                        防水
+                      </span>
+                    )}
+                    {category.showWaterWind && item.windResistant && (
+                      <span className="text-[10px] px-1.5 py-0.5 bg-gradient-to-r from-rose-400 to-pink-400 text-white rounded font-medium">
+                        防风
+                      </span>
+                    )}
+                    {item.hasPockets && (
+                      <span className="text-[10px] px-1.5 py-0.5 bg-gradient-to-r from-indigo-400 to-blue-500 text-white rounded font-medium">
+                        口袋
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="w-8 h-8"
+                  onClick={() => onEdit(item)}
+                >
+                  <Pencil size={14} />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="w-8 h-8 text-destructive hover:text-destructive"
+                  onClick={() => onDelete(item)}
+                >
+                  <Trash2 size={14} />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="p-8 text-center text-muted-foreground text-sm">
+          暂无{category.label}，点击上方添加
+        </div>
+      )}
+
+      {/* Show More/Less */}
+      {hasMore && (
+        <button
+          onClick={onToggle}
+          className="w-full py-3 flex items-center justify-center gap-1 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+        >
+          {isExpanded ? (
+            <>
+              收起 <ChevronDown size={16} className="rotate-180" />
+            </>
+          ) : (
+            <>
+              还有 {items.length - INITIAL_SHOW_COUNT} 件 <ChevronDown size={16} />
+            </>
+          )}
+        </button>
+      )}
+    </Card>
+  );
+}
+
+// Add/Edit Item Modal
 function AddEditItemModal({ 
   item,
+  defaultCategory,
   onClose, 
   onAdd,
   onUpdate,
 }: { 
   item: ClothingItem | null;
+  defaultCategory?: ClothingCategory;
   onClose: () => void;
   onAdd: (item: Omit<ClothingItem, 'id' | 'createdAt'>) => void;
   onUpdate: (id: string, updates: Partial<Omit<ClothingItem, 'id' | 'createdAt'>>) => void;
 }) {
   const { t } = useTranslation();
   const isEditing = !!item;
+  const selectedCategory = item?.category || defaultCategory;
   
-  const [step, setStep] = useState<'category' | 'details'>(isEditing ? 'details' : 'category');
-  const [selectedCategory, setSelectedCategory] = useState<ClothingCategory | null>(item?.category || null);
   const [name, setName] = useState(item?.name || '');
   const [subCategory, setSubCategory] = useState<ClothingSubCategory | null>(item?.subCategory || null);
   const [warmthLevel, setWarmthLevel] = useState(item?.warmthLevel || 5);
@@ -295,12 +386,6 @@ function AddEditItemModal({
   const [windResistant, setWindResistant] = useState(item?.windResistant || false);
   const [hasPockets, setHasPockets] = useState(item?.hasPockets || false);
   const [usage, setUsage] = useState<'commute' | 'running' | 'both'>(item?.usage || 'both');
-
-  const handleCategorySelect = (cat: ClothingCategory) => {
-    setSelectedCategory(cat);
-    setSubCategory(null);
-    setStep('details');
-  };
 
   const handleSubmit = () => {
     if (!selectedCategory || !subCategory || !name.trim()) return;
@@ -325,176 +410,148 @@ function AddEditItemModal({
   };
 
   const showWaterWind = selectedCategory !== 'socks';
+  const categoryInfo = CATEGORIES.find(c => c.type === selectedCategory);
 
   return (
     <div className="fixed inset-0 bg-background/95 backdrop-blur-xl z-50 animate-fade-in">
       <div className="max-w-md mx-auto h-full flex flex-col">
         {/* Modal Header */}
         <header className="pt-12 pb-4 px-5 flex items-center gap-4 shrink-0">
-          {step === 'details' && !isEditing ? (
-            <Button variant="ghost" size="icon" onClick={() => setStep('category')} className="rounded-full">
-              <ChevronLeft size={20} />
-            </Button>
-          ) : (
-            <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full">
-              <X size={20} />
-            </Button>
-          )}
+          <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full">
+            <X size={20} />
+          </Button>
           <h1 className="text-lg font-semibold">
-            {isEditing ? '编辑衣物' : (step === 'category' ? '选择分类' : '填写信息')}
+            {isEditing ? '编辑衣物' : `添加${categoryInfo?.label || '衣物'}`}
           </h1>
         </header>
 
         {/* Modal Content */}
         <div className="flex-1 overflow-y-auto px-5 py-4">
-          {step === 'category' && !isEditing ? (
-            <div className="grid grid-cols-2 gap-3">
-              {CATEGORIES.map(cat => (
-                <button
-                  key={cat.type}
-                  onClick={() => handleCategorySelect(cat.type)}
-                  className="p-6 bg-card border border-border rounded-2xl hover:border-primary/50 hover:bg-accent transition-all flex flex-col items-center gap-3"
-                >
-                  <span className="text-4xl">{cat.icon}</span>
-                  <span className="font-medium">{cat.label}</span>
-                </button>
-              ))}
+          <div className="space-y-5">
+            {/* Category Display */}
+            <div>
+              <label className="text-sm font-medium text-muted-foreground mb-2 block">分类</label>
+              <div className="flex items-center gap-3 p-4 bg-muted rounded-xl">
+                <span className="text-2xl">{categoryInfo?.icon}</span>
+                <span className="font-medium">{categoryInfo?.label}</span>
+              </div>
             </div>
-          ) : (
-            <div className="space-y-5">
-              {/* Category Display (when editing) */}
-              {isEditing && selectedCategory && (
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground mb-2 block">分类</label>
-                  <div className="flex items-center gap-3 p-4 bg-muted rounded-xl">
-                    <span className="text-2xl">
-                      {CATEGORIES.find(c => c.type === selectedCategory)?.icon}
-                    </span>
-                    <span className="font-medium">
-                      {CATEGORIES.find(c => c.type === selectedCategory)?.label}
-                    </span>
-                  </div>
-                </div>
-              )}
 
-              {/* Sub Category */}
-              <div>
-                <label className="text-sm font-medium text-muted-foreground mb-2 block">类型</label>
-                <div className="flex flex-wrap gap-2">
-                  {selectedCategory && SUB_CATEGORIES[selectedCategory].map(sub => (
-                    <button
-                      key={sub.type}
-                      onClick={() => setSubCategory(sub.type)}
-                      className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                        subCategory === sub.type
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      {sub.label}
-                    </button>
-                  ))}
-                </div>
+            {/* Sub Category */}
+            <div>
+              <label className="text-sm font-medium text-muted-foreground mb-2 block">类型</label>
+              <div className="flex flex-wrap gap-2">
+                {selectedCategory && SUB_CATEGORIES[selectedCategory].map(sub => (
+                  <button
+                    key={sub.type}
+                    onClick={() => setSubCategory(sub.type)}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                      subCategory === sub.type
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {sub.label}
+                  </button>
+                ))}
               </div>
+            </div>
 
-              {/* Name */}
-              <div>
-                <label className="text-sm font-medium text-muted-foreground mb-2 block">名称</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="例如：黑色羽绒服"
-                  className="input-field"
-                />
+            {/* Name */}
+            <div>
+              <label className="text-sm font-medium text-muted-foreground mb-2 block">名称</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="例如：黑色羽绒服"
+                className="input-field"
+              />
+            </div>
+
+            {/* Usage */}
+            <div>
+              <label className="text-sm font-medium text-muted-foreground mb-2 block">用途</label>
+              <div className="flex gap-2">
+                {USAGE_OPTIONS.map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setUsage(opt.value)}
+                    className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                      usage === opt.value
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
               </div>
+            </div>
 
-              {/* Usage */}
-              <div>
-                <label className="text-sm font-medium text-muted-foreground mb-2 block">用途</label>
-                <div className="flex gap-2">
-                  {USAGE_OPTIONS.map(opt => (
-                    <button
-                      key={opt.value}
-                      onClick={() => setUsage(opt.value)}
-                      className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                        usage === opt.value
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
+            {/* Warmth Level */}
+            <div>
+              <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                保暖等级 <span className="text-primary font-bold ml-1">{warmthLevel}</span>
+              </label>
+              <div className="flex gap-2">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(level => (
+                  <button
+                    key={level}
+                    onClick={() => setWarmthLevel(level)}
+                    className={`flex-1 h-10 rounded-lg text-sm font-medium transition-all ${
+                      warmthLevel >= level
+                        ? 'bg-orange-500 text-white'
+                        : 'bg-muted text-muted-foreground'
+                    }`}
+                  >
+                    {level}
+                  </button>
+                ))}
               </div>
-
-              {/* Warmth Level */}
-              <div>
-                <label className="text-sm font-medium text-muted-foreground mb-2 block">
-                  保暖等级 <span className="text-primary font-bold ml-1">{warmthLevel}</span>
-                </label>
-                <div className="flex gap-2">
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(level => (
-                    <button
-                      key={level}
-                      onClick={() => setWarmthLevel(level)}
-                      className={`flex-1 h-10 rounded-lg text-sm font-medium transition-all ${
-                        warmthLevel >= level
-                          ? 'bg-orange-500 text-white'
-                          : 'bg-muted text-muted-foreground'
-                      }`}
-                    >
-                      {level}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                  <span>轻薄</span>
-                  <span>保暖</span>
-                </div>
+              <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                <span>轻薄</span>
+                <span>保暖</span>
               </div>
+            </div>
 
-              {/* Toggles */}
-              <div className="space-y-3">
-                {showWaterWind && (
-                  <>
-                    <ToggleRow
-                      label="防水"
-                      checked={waterResistant}
-                      onChange={setWaterResistant}
-                    />
-                    <ToggleRow
-                      label="防风"
-                      checked={windResistant}
-                      onChange={setWindResistant}
-                    />
-                  </>
-                )}
-                {selectedCategory === 'bottom' && (
+            {/* Toggles */}
+            <div className="space-y-3">
+              {showWaterWind && (
+                <>
                   <ToggleRow
-                    label="有口袋（可放能量胶）"
-                    checked={hasPockets}
-                    onChange={setHasPockets}
+                    label="防水"
+                    checked={waterResistant}
+                    onChange={setWaterResistant}
                   />
-                )}
-              </div>
+                  <ToggleRow
+                    label="防风"
+                    checked={windResistant}
+                    onChange={setWindResistant}
+                  />
+                </>
+              )}
+              {selectedCategory === 'bottom' && (
+                <ToggleRow
+                  label="有口袋（可放能量胶）"
+                  checked={hasPockets}
+                  onChange={setHasPockets}
+                />
+              )}
             </div>
-          )}
+          </div>
         </div>
 
         {/* Modal Footer */}
-        {(step === 'details' || isEditing) && (
-          <div className="p-5 border-t border-border shrink-0">
-            <Button 
-              className="w-full h-12 text-base"
-              disabled={!subCategory || !name.trim()}
-              onClick={handleSubmit}
-            >
-              {isEditing ? '保存' : '添加'}
-            </Button>
-          </div>
-        )}
+        <div className="p-5 border-t border-border shrink-0">
+          <Button 
+            className="w-full h-12 text-base"
+            disabled={!subCategory || !name.trim()}
+            onClick={handleSubmit}
+          >
+            {isEditing ? '保存' : '添加'}
+          </Button>
+        </div>
       </div>
     </div>
   );

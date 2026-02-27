@@ -1,63 +1,131 @@
 'use client';
 
 import { ClothingItem } from '@/types';
-import { Card } from '@/components/ui/card';
 
 interface ClothingCardProps {
   item?: ClothingItem;
   label: string;
-  onReplace: () => void;
+  icon: string;
+  onReplace?: () => void;
+  showAdd?: boolean;
+  onAdd?: () => void;
 }
 
-export default function ClothingCard({ item, label, onReplace }: ClothingCardProps) {
-  const getIcon = () => {
-    if (!item) return '👔';
-    switch (item.category) {
-      case 'top': return '👕';
-      case 'bottom': return '👖';
-      case 'socks': return '🧦';
-      case 'shoes': return '👟';
-      case 'hat': return '🧢';
-      default: return '👔';
-    }
-  };
+export default function ClothingCard({ 
+  item, 
+  label, 
+  icon,
+  onReplace, 
+  showAdd = false,
+  onAdd
+}: ClothingCardProps) {
+  // 添加模式
+  if (showAdd) {
+    return (
+      <div 
+        className="flex items-center gap-4 p-4 bg-card border border-dashed border-border rounded-xl hover:border-border hover:bg-accent/50 transition-all cursor-pointer min-h-[72px]"
+        onClick={onAdd}
+      >
+        <span className="text-2xl">{icon}</span>
+        <span className="text-sm text-muted-foreground">添加{label}</span>
+      </div>
+    );
+  }
 
-  // 如果没有 item，显示空状态
+  // 如果没有 item
   if (!item) {
     return (
-      <Card className="overflow-hidden border-border/50 border-dashed">
-        <div className="aspect-square bg-muted/50 flex items-center justify-center text-4xl opacity-30">
-          {getIcon()}
-        </div>
-        <div className="p-3">
-          <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
-            {label}
-          </div>
-          <div className="text-sm text-muted-foreground">暂无推荐</div>
-        </div>
-      </Card>
+      <div className="flex items-center gap-4 p-4 bg-card border border-border rounded-xl opacity-50 min-h-[72px]">
+        <span className="text-2xl opacity-40">{icon}</span>
+        <span className="text-sm text-muted-foreground">暂无{label}</span>
+      </div>
     );
   }
 
   return (
-    <Card className="overflow-hidden border-border/50 hover:border-border transition-colors">
-      <div className="aspect-square bg-muted flex items-center justify-center text-4xl">
-        {getIcon()}
-      </div>
-      <div className="p-3">
-        <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">
-          {label}
-        </div>
-        <div className="font-medium text-sm truncate">
+    <div className="flex items-center gap-4 p-4 bg-card border border-border rounded-xl hover:border-border/80 transition-all min-h-[72px]">
+      {/* Icon */}
+      <span className="text-2xl shrink-0">{icon}</span>
+      
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+        {/* Name - 独占一行 */}
+        <div className="font-medium text-base truncate">
           {item.name}
         </div>
+        
+        {/* Second row: SubCategory + Tags */}
+        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+          {/* 子分类 */}
+          <span className="text-xs text-muted-foreground">
+            {getSubCategoryLabel(item.subCategory)}
+          </span>
+          
+          {/* 分隔符 */}
+          <span className="text-muted-foreground/30">·</span>
+          
+          {/* 标签 */}
+          {item.usage === 'running' && (
+            <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded">跑步</span>
+          )}
+          {item.usage === 'commute' && (
+            <span className="text-[10px] px-1.5 py-0.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded">通勤</span>
+          )}
+          {item.usage === 'both' && (
+            <span className="text-[10px] px-1.5 py-0.5 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 rounded">皆可</span>
+          )}
+          {item.waterResistant && (
+            <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded">防水</span>
+          )}
+          {item.windResistant && (
+            <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 rounded">防风</span>
+          )}
+          {item.hasPockets && (
+            <span className="text-[10px] px-1.5 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 rounded">口袋</span>
+          )}
+        </div>
+      </div>
+
+      {/* Replace Button */}
+      {onReplace && (
         <button
           onClick={onReplace}
-          className="w-full mt-2 py-2 text-xs text-muted-foreground hover:text-foreground bg-muted hover:bg-muted/80 rounded-lg transition-colors"
+          className="px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground bg-muted hover:bg-muted/80 rounded-lg transition-colors shrink-0"
         >
           更换
         </button>
-      </div>
-    </Card>
+      )}
+    </div>
   );
+}
+
+function getSubCategoryLabel(subCategory: string): string {
+  const labels: Record<string, string> = {
+    't-shirt': 'T恤',
+    'long-sleeve': '长袖',
+    'sweater': '毛衣',
+    'hoodie': '卫衣',
+    'fleece': '抓绒',
+    'cotton-padded': '棉服',
+    'down-jacket': '羽绒服',
+    'jacket': '夹克',
+    'windbreaker': '冲锋衣',
+    'wind-shirt': '皮肤衣',
+    'shirt': '衬衫',
+    'tank-top': '背心',
+    'shorts': '短裤',
+    'half-tights': '半弹',
+    'pants': '长裤',
+    'short-socks': '短袜',
+    'long-socks': '长袜',
+    'thick-socks': '厚袜',
+    'hiking-shoes': '徒步鞋',
+    'slippers': '拖鞋',
+    'casual-shoes': '休闲鞋',
+    'running-shoes': '跑鞋',
+    'summer-hat': '夏帽',
+    'beanie': '冷帽',
+    'running-hat': '跑步帽',
+  };
+  return labels[subCategory] || subCategory;
 }

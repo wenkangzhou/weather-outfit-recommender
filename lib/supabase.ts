@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { ClothingItem, Outfit, UserPreferences, ClothingCategory, ClothingSubCategory } from '@/types';
+import { ClothingItem, Outfit, UserPreferences, ClothingCategory, ClothingSubCategory, OutfitHistoryItem, WeatherData } from '@/types';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -40,6 +40,17 @@ const setDemoPrefs = (prefs: UserPreferences) => {
   localStorage.setItem('demo_preferences', JSON.stringify(prefs));
 };
 
+const getDemoOutfitHistory = (): OutfitHistoryItem[] => {
+  if (typeof window === 'undefined') return [];
+  const history = localStorage.getItem('demo_outfit_history');
+  return history ? JSON.parse(history) : [];
+};
+
+const setDemoOutfitHistory = (history: OutfitHistoryItem[]) => {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem('demo_outfit_history', JSON.stringify(history));
+};
+
 // Helper: get first item from array response
 const first = <T>(data: T[] | null): T | null => {
   return data && data.length > 0 ? data[0] : null;
@@ -73,6 +84,20 @@ interface UserPreferencesRow {
   sweat_level?: 'low' | 'medium' | 'high';
   wind_sensitivity?: boolean;
   rain_preference?: 'avoid' | 'acceptable' | 'brave';
+}
+
+interface OutfitHistoryRow {
+  id: string;
+  user_id: string;
+  items: any;
+  weather_data: any;
+  location_name: string;
+  worn_at: string;
+  created_at: string;
+  comfort_rating?: number;
+  notes?: string;
+  scene?: 'commute' | 'running';
+  run_type?: 'easy' | 'long' | 'interval';
 }
 
 // API functions
@@ -228,7 +253,154 @@ export async function deleteClothingItem(id: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function getOutfitHistory(): Promise<Outfit[]> {
+// Outfit History API
+export interface SaveOutfitParams {
+  items: {
+    top: ClothingItem;
+    bottom: ClothingItem;
+    socks: ClothingItem;
+    shoes: ClothingItem;
+    hat?: ClothingItem;
+    scene: 'commute' | 'running';
+    runType?: 'easy' | 'long' | 'interval';
+    weatherSnapshot?: WeatherData;
+  };
+  weatherData: WeatherData;
+  locationName: string;
+  scene: 'commute' | 'running';
+  runType?: 'easy' | 'long' | 'interval';
+}
+
+export async function saveOutfitToHistory(params: SaveOutfitParams): Promise<OutfitHistoryItem> {
+  const historyItem: OutfitHistoryItem = {
+    id: 'demo_' + Date.now(),
+    items: params.items,
+    weatherData: params.weatherData,
+    locationName: params.locationName,
+    scene: params.scene,
+    runType: params.runType,
+    wornAt: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+  };
+
+  if (!isConfigured || !supabase) {
+    const history = getDemoOutfitHistory();
+    setDemoOutfitHistory([historyItem, ...history]);
+    return historyItem;
+  }
+  
+  const { data, error } = await supabase
+    .from('outfit_history')
+    .insert([{
+      items: params.items,
+      weather_data: params.weatherData,
+      location_name: params.locationName,
+      scene: params.scene,
+      run_type: params.runType,
+      worn_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+    }])
+    .select()
+    .limit(1);
+  
+  if (error) {
+    console.error('saveOutfitToHistory error:', error);
+    throw error;
+  }
+  
+  const record = first(data as OutfitHistoryRow[]);
+  if (!record) throw new Error('No data returned');
+  
+  return {
+    id: record.id,
+    items: record.items,
+    weatherData: record.weather_data,
+    locationName: record.location_name,
+    scene: record.scene || 'commute',
+    runType: record.run_type || undefined,
+    wornAt: record.worn_at,
+    createdAt: record.created_at,
+    comfortRating: record.comfort_rating,
+    notes: record.notes,
+  };
+}
+
+export async function getOutfitHistory(): Promise<OutfitHistoryItem[]> {
+  if (!isConfigured || !supabase) {
+    return getDemoOutfitHistory().sort((a, b) => 
+      new Date(b.wornAt).getTime() - new Date(a.wornAt).getTime()
+    );
+  }
+  
+  const { data, error } = await supabase
+    .from('outfit_history')
+    .select('*')
+    .order('worn_at', { ascending: false });
+  
+  if (error) {
+    console.error('getOutfitHistory error:', error);
+    return [];
+  }
+  
+  const rows = (data || []) as OutfitHistoryRow[];
+  return rows.map((record) => ({
+    id: record.id,
+    items: record.items,
+    weatherData: record.weather_data,
+    locationName: record.location_name,
+    scene: record.scene || 'commute',
+    runType: record.run_type || undefined,
+    wornAt: record.worn_at,
+    createdAt: record.created_at,
+    comfortRating: record.comfort_rating,
+    notes: record.notes,
+  }));
+}
+
+export async function deleteOutfitHistory(id: string): Promise<void> {
+  if (!isConfigured || !supabase) {
+    const history = getDemoOutfitHistory().filter(item => item.id !== id);
+    setDemoOutfitHistory(history);
+    return;
+  }
+  
+  const { error } = await supabase
+    .from('outfit_history')
+    .delete()
+    .eq('id', id);
+  
+  if (error) throw error;
+}
+
+export async function updateOutfitHistoryRating(
+  id: string, 
+  rating: number, 
+  notes?: string
+): Promise<void> {
+  if (!isConfigured || !supabase) {
+    const history = getDemoOutfitHistory();
+    const index = history.findIndex(item => item.id === id);
+    if (index !== -1) {
+      history[index].comfortRating = rating;
+      if (notes !== undefined) history[index].notes = notes;
+      setDemoOutfitHistory(history);
+    }
+    return;
+  }
+  
+  const updates: any = { comfort_rating: rating };
+  if (notes !== undefined) updates.notes = notes;
+  
+  const { error } = await supabase
+    .from('outfit_history')
+    .update(updates)
+    .eq('id', id);
+  
+  if (error) throw error;
+}
+
+// Legacy outfit functions (keep for compatibility)
+export async function getOutfits(): Promise<Outfit[]> {
   if (!isConfigured || !supabase) return [];
   
   const { data, error } = await supabase
@@ -237,7 +409,7 @@ export async function getOutfitHistory(): Promise<Outfit[]> {
     .order('created_at', { ascending: false });
   
   if (error) {
-    console.error('getOutfitHistory error:', error);
+    console.error('getOutfits error:', error);
     return [];
   }
   return (data || []) as Outfit[];
@@ -255,7 +427,9 @@ export async function saveOutfit(outfit: Omit<Outfit, 'id'>): Promise<Outfit> {
       bottom_id: outfit.bottom.id,
       socks_id: outfit.socks.id,
       shoes_id: outfit.shoes.id,
+      hat_id: outfit.hat?.id,
       scene: outfit.scene,
+      run_type: outfit.runType,
       weather_snapshot: outfit.weatherSnapshot,
       note: outfit.note,
       rating: outfit.rating,
@@ -354,4 +528,3 @@ export async function uploadClothingImage(file: File): Promise<string> {
   const { data } = supabase.storage.from('clothing-images').getPublicUrl(fileName);
   return data.publicUrl;
 }
-

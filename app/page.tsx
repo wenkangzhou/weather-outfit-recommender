@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { Shirt, Settings } from 'lucide-react';
 import { ThemeProvider } from '@/components/ThemeProvider';
@@ -17,8 +18,11 @@ type Tab = 'outfit' | 'settings';
 function AppContent() {
   const { t } = useTranslation();
   const actualTheme = useActualTheme();
+  const searchParams = useSearchParams();
   
-  const [activeTab, setActiveTab] = useState<Tab>('outfit');
+  // 从 URL 读取 tab 参数
+  const tabFromUrl = searchParams.get('tab') as Tab | null;
+  const [activeTab, setActiveTab] = useState<Tab>(tabFromUrl === 'settings' ? 'settings' : 'outfit');
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [bgClass, setBgClass] = useState('bg-weather-sunny');
@@ -28,6 +32,19 @@ function AppContent() {
     setMounted(true);
     getUserPreferences().then(setPreferences).catch(() => setPreferences(null));
   }, []);
+  
+  // 切换 tab 时更新 URL（可选，保持 URL 同步）
+  const handleTabChange = (tab: Tab) => {
+    setActiveTab(tab);
+    // 使用 replaceState 避免添加历史记录
+    const url = new URL(window.location.href);
+    if (tab === 'settings') {
+      url.searchParams.set('tab', 'settings');
+    } else {
+      url.searchParams.delete('tab');
+    }
+    window.history.replaceState({}, '', url);
+  };
 
   useEffect(() => {
     const loadWeather = async () => {
@@ -69,17 +86,20 @@ function AppContent() {
       <div className="relative min-h-screen max-w-md mx-auto">
         {activeTab === 'outfit' ? <OutfitTab weather={weather} /> : <SettingsTab />}
 
+        {/* Spacer for bottom nav */}
+        <div className="h-20" />
+
         {/* Bottom Navigation */}
         <nav className="bottom-nav">
           <NavItem 
             active={activeTab === 'outfit'} 
-            onClick={() => setActiveTab('outfit')}
+            onClick={() => handleTabChange('outfit')}
             icon={<Shirt size={20} strokeWidth={1.5} />}
             label={t('nav.outfit')}
           />
           <NavItem 
             active={activeTab === 'settings'} 
-            onClick={() => setActiveTab('settings')}
+            onClick={() => handleTabChange('settings')}
             icon={<Settings size={20} strokeWidth={1.5} />}
             label={t('nav.settings')}
           />

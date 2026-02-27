@@ -7,7 +7,7 @@ import { Sun, Moon, Monitor, Shirt, History, ChevronRight, Timer, Check, X } fro
 import { Button } from '@/components/ui/button';
 import { useAppStore } from '@/store/appStore';
 import { UserPreferences, RunType } from '@/types';
-import { getUserPreferences, saveUserPreferences, getClothingItems } from '@/lib/supabase';
+import { getUserPreferences, saveUserPreferences, getClothingItems, getOutfitHistory } from '@/lib/supabase';
 import { Card } from '@/components/ui/card';
 
 const RUN_TYPE_OPTIONS: { type: RunType; label: string }[] = [
@@ -24,20 +24,38 @@ export default function SettingsTab() {
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [defaultRunType, setDefaultRunType] = useState<RunType>('easy');
   const [wardrobeCount, setWardrobeCount] = useState(0);
+  const [historyCount, setHistoryCount] = useState(0);
   const [showRunTypePicker, setShowRunTypePicker] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  // Load preferences
+  // Load preferences and counts
   useEffect(() => {
     setMounted(true);
-    getUserPreferences().then(prefs => {
-      if (prefs) {
-        setPreferences(prefs);
-        setDefaultRunType(prefs.defaultRunType || 'easy');
-      }
-    });
-    getClothingItems().then(items => setWardrobeCount(items.length));
+    loadData();
   }, []);
+
+  // Refresh data when tab becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadData();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
+  const loadData = async () => {
+    const prefs = await getUserPreferences();
+    if (prefs) {
+      setPreferences(prefs);
+      setDefaultRunType(prefs.defaultRunType || 'easy');
+    }
+    const items = await getClothingItems();
+    setWardrobeCount(items.length);
+    const history = await getOutfitHistory();
+    setHistoryCount(history.length);
+  };
 
   // Auto-save when run type changes
   const handleRunTypeChange = useCallback(async (type: RunType) => {
@@ -81,14 +99,14 @@ export default function SettingsTab() {
             title={t('settings.myWardrobe')}
             count={wardrobeCount}
             unit={t('settings.items')}
-            onClick={() => router.push('/wardrobe')}
+            onClick={() => router.push('/wardrobe?from=settings')}
           />
           <QuickAccessRow 
             icon={<History size={20} />}
             title={t('settings.outfitHistory')}
-            count={0}
+            count={historyCount}
             unit={t('settings.records')}
-            onClick={() => {}}
+            onClick={() => router.push('/history')}
           />
         </section>
 

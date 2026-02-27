@@ -123,6 +123,37 @@ function scoreItem(
   return score;
 }
 
+// Score hat based on weather conditions
+function scoreHat(
+  item: ClothingItem,
+  weather: WeatherData,
+  effectiveTemp: number
+): number {
+  let score = 0;
+  
+  // Cold weather - warm hats preferred
+  if (effectiveTemp < 5) {
+    if (item.subCategory === 'beanie') score += 30;
+    if (item.warmthLevel >= 7) score += 20;
+  }
+  
+  // Hot weather - summer hats preferred
+  if (effectiveTemp > 25) {
+    if (item.subCategory === 'summer-hat') score += 30;
+    if (item.warmthLevel <= 3) score += 20;
+  }
+  
+  // Running scene - running hats preferred
+  if (item.subCategory === 'running-hat') score += 15;
+  
+  // Sunny weather
+  if (!weather.isRaining && weather.weatherCode >= 800) {
+    if (item.subCategory === 'summer-hat' || item.subCategory === 'running-hat') score += 10;
+  }
+  
+  return score;
+}
+
 // Generate weather tips for display
 function generateWeatherTips(weather: WeatherData): string[] {
   const tips: string[] = [];
@@ -157,7 +188,8 @@ function generateReasoning(
   weather: WeatherData,
   scene: OutfitScene,
   runType?: RunType,
-  effectiveTemp?: number
+  effectiveTemp?: number,
+  hasHat?: boolean
 ): string {
   const reasons: string[] = [];
   
@@ -178,6 +210,10 @@ function generateReasoning(
     reasons.push('雨天优先防水装备');
   }
   
+  if (hasHat) {
+    reasons.push('建议佩戴帽子');
+  }
+  
   return reasons.join(' · ');
 }
 
@@ -188,6 +224,7 @@ export function generateRecommendation(
     bottoms: ClothingItem[];
     socks: ClothingItem[];
     shoes: ClothingItem[];
+    hats?: ClothingItem[];
   },
   weather: WeatherData,
   preferences: UserPreferences,
@@ -217,16 +254,27 @@ export function generateRecommendation(
     }))
     .sort((a, b) => b.score - a.score);
   
+  // Score hats if available (optional)
+  const scoredHats = wardrobe.hats && wardrobe.hats.length > 0
+    ? wardrobe.hats
+        .map(item => ({ item, score: scoreHat(item, weather, effectiveTemp) }))
+        .sort((a, b) => b.score - a.score)
+    : [];
+  
   const top = scoredTops[0]?.item;
   const bottom = scoredBottoms[0]?.item;
   const socks = scoredSocks[0]?.item;
   const shoes = scoredShoes[0]?.item;
   
+  // Only recommend hat if conditions warrant it
+  const shouldRecommendHat = effectiveTemp < 10 || effectiveTemp > 28 || weather.isRaining;
+  const hat = shouldRecommendHat && scoredHats.length > 0 ? scoredHats[0].item : undefined;
+  
   // Generate weather tips
   const weatherTips = generateWeatherTips(weather);
   
   // Generate reasoning
-  const reasoning = generateReasoning(weather, scene, runType, effectiveTemp);
+  const reasoning = generateReasoning(weather, scene, runType, effectiveTemp, shouldRecommendHat);
   
   return {
     outfit: {
@@ -234,6 +282,7 @@ export function generateRecommendation(
       bottom: bottom!,
       socks: socks!,
       shoes: shoes!,
+      hat,
       scene,
       runType,
       weatherSnapshot: weather,
@@ -245,6 +294,7 @@ export function generateRecommendation(
       bottom: scoredBottoms.slice(1, 4).map(s => s.item),
       socks: scoredSocks.slice(1, 4).map(s => s.item),
       shoes: scoredShoes.slice(1, 4).map(s => s.item),
+      hat: scoredHats.slice(1, 4).map(s => s.item),
     },
   };
 }

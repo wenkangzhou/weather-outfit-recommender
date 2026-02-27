@@ -3,16 +3,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import { MapPin, Navigation, RefreshCw, ChevronDown, Wind, Droplets, Plus, Shirt, ArrowRight } from 'lucide-react';
+import { MapPin, RefreshCw, ChevronDown, Wind, Droplets, Plus, Shirt, Check, History } from 'lucide-react';
 import { ClothingItem, WeatherData, OutfitRecommendation, OutfitScene, UserPreferences, RunType } from '@/types';
 import { getMockWeather } from '@/lib/weather';
 import { generateRecommendation } from '@/lib/recommendation';
-import { getClothingItems, getUserPreferences } from '@/lib/supabase';
+import { getClothingItems, getUserPreferences, saveOutfitToHistory } from '@/lib/supabase';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import ClothingCard from './ClothingCard';
 import CityPicker from './CityPicker';
+import { toast } from '@/hooks/use-toast';
 
 interface OutfitTabProps {
   weather?: WeatherData | null;
@@ -24,12 +24,13 @@ const RUN_TYPES: { type: RunType; label: string; shortLabel: string; desc: strin
   { type: 'interval', label: '间歇跑', shortLabel: '间歇', desc: '速度快产热多，跑后注意保暖' },
 ];
 
-// 检查衣柜是否完整
+// 检查衣柜是否完整（帽子可选）
 function checkWardrobeCompleteness(items: ClothingItem[]) {
   const hasTop = items.some(i => i.category === 'top');
   const hasBottom = items.some(i => i.category === 'bottom');
   const hasSocks = items.some(i => i.category === 'socks');
   const hasShoes = items.some(i => i.category === 'shoes');
+  const hasHat = items.some(i => i.category === 'hat');
   
   const total = items.length;
   const isEmpty = total === 0;
@@ -41,7 +42,7 @@ function checkWardrobeCompleteness(items: ClothingItem[]) {
     !hasShoes && '鞋子',
   ].filter(Boolean) as string[];
   
-  return { isEmpty, isComplete, hasTop, hasBottom, hasSocks, hasShoes, missingCategories, total };
+  return { isEmpty, isComplete, hasTop, hasBottom, hasSocks, hasShoes, hasHat, missingCategories, total };
 }
 
 export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
@@ -58,12 +59,14 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
     bottoms: ClothingItem[];
     socks: ClothingItem[];
     shoes: ClothingItem[];
-  }>({ tops: [], bottoms: [], socks: [], shoes: [] });
+    hats: ClothingItem[];
+  }>({ tops: [], bottoms: [], socks: [], shoes: [], hats: [] });
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [showAlternatives, setShowAlternatives] = useState(false);
-  const [showWeatherDetails, setShowWeatherDetails] = useState(false);
-  const [replacingItem, setReplacingItem] = useState<'top' | 'bottom' | 'socks' | 'shoes' | null>(null);
+  const [showHatSelector, setShowHatSelector] = useState(false);
+  const [replacingItem, setReplacingItem] = useState<'top' | 'bottom' | 'socks' | 'shoes' | 'hat' | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setWeather(propWeather || getMockWeather());
@@ -88,6 +91,7 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
         bottoms: items.filter(i => i.category === 'bottom'),
         socks: items.filter(i => i.category === 'socks'),
         shoes: items.filter(i => i.category === 'shoes'),
+        hats: items.filter(i => i.category === 'hat'),
       };
       setWardrobe(wardrobeData);
       
@@ -128,9 +132,31 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
     setRecommendation(rec);
   }, [weather, wardrobe, preferences, scene, runType, allItems]);
 
-  const handleReplace = (category: 'top' | 'bottom' | 'socks' | 'shoes') => {
+  const handleReplace = (category: 'top' | 'bottom' | 'socks' | 'shoes' | 'hat') => {
     setReplacingItem(category);
     setShowAlternatives(true);
+  };
+
+  const handleAddHat = () => {
+    setShowHatSelector(true);
+  };
+
+  const selectHat = (hat: ClothingItem) => {
+    if (!recommendation) return;
+    setRecommendation({
+      ...recommendation,
+      outfit: { ...recommendation.outfit, hat },
+    });
+    setShowHatSelector(false);
+  };
+
+  const removeHat = () => {
+    if (!recommendation) return;
+    const { hat, ...rest } = recommendation.outfit;
+    setRecommendation({
+      ...recommendation,
+      outfit: rest as any,
+    });
   };
 
   const selectAlternative = (item: ClothingItem) => {
@@ -141,6 +167,35 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
     });
     setShowAlternatives(false);
     setReplacingItem(null);
+  };
+
+  // 保存穿搭
+  const handleSaveOutfit = async () => {
+    if (!recommendation || !weather) return;
+    
+    try {
+      setSaving(true);
+      await saveOutfitToHistory({
+        items: recommendation.outfit,
+        weatherData: weather,
+        locationName: weather.cityName || preferences?.location || '未知位置',
+        scene,
+        runType: scene === 'running' ? runType : undefined,
+      });
+      toast({
+        title: '已保存',
+        description: '这套穿搭已记录到历史',
+      });
+    } catch (error) {
+      console.error('Failed to save outfit:', error);
+      toast({
+        title: '保存失败',
+        description: '请稍后重试',
+        variant: 'destructive',
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const wardrobeStatus = checkWardrobeCompleteness(allItems);
@@ -172,6 +227,25 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
   };
 
   const weatherTips = getWeatherTips();
+
+  // 获取可更换的备选列表
+  const getAlternativeItems = () => {
+    if (!replacingItem) return [];
+    switch (replacingItem) {
+      case 'top': return wardrobe.tops;
+      case 'bottom': return wardrobe.bottoms;
+      case 'socks': return wardrobe.socks;
+      case 'shoes': return wardrobe.shoes;
+      case 'hat': return wardrobe.hats;
+      default: return [];
+    }
+  };
+
+  // 获取当前选中的物品
+  const getCurrentItem = () => {
+    if (!replacingItem || !recommendation) return null;
+    return recommendation.outfit[replacingItem];
+  };
 
   if (loading) {
     return (
@@ -266,12 +340,36 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
         </header>
 
         {/* Weather Summary */}
-        {weather && (
-          <section className="pt-6 pb-4 px-5">
-            <div className="data-large text-foreground">{weather.temp}°</div>
-            <div className="text-muted-foreground">{weather.description} · 体感 {weather.feelsLike}°</div>
-          </section>
-        )}
+        <section className="pt-6 pb-4 px-5">
+          <div className="flex items-center justify-between">
+            {/* Left: Temperature & Weather Icon */}
+            <div className="flex items-center gap-4">
+              <div className="text-5xl">
+                {weather?.isRaining ? '🌧️' : 
+                 weather?.weatherCode && weather.weatherCode >= 801 ? '☁️' : 
+                 weather?.weatherCode && weather.weatherCode >= 800 ? '☀️' : '⛅'}
+              </div>
+              <div>
+                <div className="data-large text-foreground leading-none">{weather?.temp ?? 15}°</div>
+                <div className="text-muted-foreground text-sm mt-1">
+                  {weather?.description ?? '多云'} · 体感 {weather?.feelsLike ?? 13}°
+                </div>
+              </div>
+            </div>
+            
+            {/* Right: Weather Metrics */}
+            <div className="flex flex-col items-end gap-2">
+              <div className="flex items-center gap-1.5 text-sm">
+                <Wind size={14} className="text-blue-500" />
+                <span className="font-medium tabular-nums text-foreground">{Math.round(weather?.windSpeed ?? 3)}m/s</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-sm">
+                <Droplets size={14} className="text-cyan-500" />
+                <span className="font-medium tabular-nums text-foreground">{weather?.humidity ?? 65}%</span>
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* Incomplete Wardrobe Notice */}
         <div className="px-5">
@@ -347,37 +445,44 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
       {/* Main Outfit Display - Core Area */}
       <section className="pt-4 px-5">
         {/* Temperature & Weather Info */}
-        <div className="flex items-center justify-between mb-6">
-          {/* Left: Temperature */}
-          <div>
-            <div className="data-large text-foreground">{weather?.temp ?? 15}°</div>
-            <div className="text-muted-foreground">
-              {weather?.description ?? '多云'} · 体感 {weather?.feelsLike ?? 13}°
+        <div className="flex items-center justify-between mb-4">
+          {/* Left: Temperature & Weather Icon */}
+          <div className="flex items-center gap-3">
+            <div className="text-4xl">
+              {weather?.isRaining ? '🌧️' : 
+               weather?.weatherCode && weather.weatherCode >= 801 ? '☁️' : 
+               weather?.weatherCode && weather.weatherCode >= 800 ? '☀️' : '⛅'}
+            </div>
+            <div>
+              <div className="text-3xl font-light text-foreground leading-none">{weather?.temp ?? 15}°</div>
+              <div className="text-muted-foreground text-xs mt-0.5">
+                {weather?.description ?? '多云'} · 体感 {weather?.feelsLike ?? 13}°
+              </div>
             </div>
           </div>
           
           {/* Right: Weather Metrics */}
-          <div className="flex flex-col items-end gap-2 bg-muted/50 px-3 py-2 rounded-xl">
-            <div className="flex items-center gap-1.5 text-sm text-foreground">
-              <Wind size={14} className="text-muted-foreground" />
-              <span className="font-medium tabular-nums">{Math.round(weather?.windSpeed ?? 3)}m/s</span>
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex items-center gap-1 text-xs">
+              <Wind size={12} className="text-blue-500" />
+              <span className="font-medium tabular-nums text-foreground">{Math.round(weather?.windSpeed ?? 3)}m/s</span>
             </div>
-            <div className="flex items-center gap-1.5 text-sm text-foreground">
-              <Droplets size={14} className="text-muted-foreground" />
-              <span className="font-medium tabular-nums">{weather?.humidity ?? 65}%</span>
+            <div className="flex items-center gap-1 text-xs">
+              <Droplets size={12} className="text-cyan-500" />
+              <span className="font-medium tabular-nums text-foreground">{weather?.humidity ?? 65}%</span>
             </div>
           </div>
         </div>
 
         {/* Run Type Selector (only for running) */}
         {scene === 'running' && (
-          <div className="mb-6">
+          <div className="mb-4">
             <div className="flex gap-2">
               {RUN_TYPES.map((run) => (
                 <button
                   key={run.type}
                   onClick={() => setRunType(run.type)}
-                  className={`flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all ${
+                  className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-all ${
                     runType === run.type
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-muted text-muted-foreground hover:text-foreground'
@@ -387,7 +492,7 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
                 </button>
               ))}
             </div>
-            <div className="mt-2 text-xs text-muted-foreground text-center">
+            <div className="mt-1.5 text-[11px] text-muted-foreground text-center">
               {RUN_TYPES.find(r => r.type === runType)?.desc}
             </div>
           </div>
@@ -395,39 +500,80 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
 
         {/* Outfit Recommendation - Main Content */}
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <ClothingCard item={recommendation?.outfit.top} label={t('clothing.top')} onReplace={() => handleReplace('top')} />
-            <ClothingCard item={recommendation?.outfit.bottom} label={t('clothing.bottom')} onReplace={() => handleReplace('bottom')} />
-            <ClothingCard item={recommendation?.outfit.socks} label={t('clothing.socks')} onReplace={() => handleReplace('socks')} />
-            <ClothingCard item={recommendation?.outfit.shoes} label={t('clothing.shoes')} onReplace={() => handleReplace('shoes')} />
+          {/* 主要穿搭 - 列表形式，一行一个 */}
+          <div className="space-y-2">
+            <ClothingCard item={recommendation?.outfit.top} label={t('clothing.top')} icon="👕" onReplace={() => handleReplace('top')} />
+            <ClothingCard item={recommendation?.outfit.bottom} label={t('clothing.bottom')} icon="👖" onReplace={() => handleReplace('bottom')} />
+            <ClothingCard item={recommendation?.outfit.socks} label={t('clothing.socks')} icon="🧦" onReplace={() => handleReplace('socks')} />
+            <ClothingCard item={recommendation?.outfit.shoes} label={t('clothing.shoes')} icon="👟" onReplace={() => handleReplace('shoes')} />
           </div>
+
+          {/* 帽子 - 可选 */}
+          {wardrobeStatus.hasHat && (
+            <div className="pt-2">
+              {recommendation?.outfit.hat ? (
+                <ClothingCard 
+                  item={recommendation.outfit.hat} 
+                  label="帽子" 
+                  icon="🧢"
+                  onReplace={() => handleReplace('hat')} 
+                />
+              ) : (
+                <ClothingCard 
+                  showAdd 
+                  label="帽子" 
+                  icon="🧢"
+                  onAdd={handleAddHat}
+                />
+              )}
+            </div>
+          )}
 
           {/* Reasoning */}
           {recommendation && (
-            <Card className="p-4 bg-primary/5 border-primary/20">
-              <p className="text-sm text-foreground/80">{recommendation.reasoning}</p>
+            <Card className="p-3 bg-primary/5 border-primary/20">
+              <p className="text-xs text-foreground/80">{recommendation.reasoning}</p>
             </Card>
           )}
 
-          {/* Refresh Button */}
-          <Button
-            onClick={generateNewRecommendation}
-            variant="secondary"
-            className="w-full h-12"
+          {/* Action Buttons */}
+          <div className="flex gap-2">
+            <Button
+              onClick={generateNewRecommendation}
+              variant="secondary"
+              className="flex-1 h-10 text-sm"
+            >
+              <RefreshCw size={14} className="mr-1.5" />
+              {t('outfit.refresh')}
+            </Button>
+            <Button
+              onClick={handleSaveOutfit}
+              disabled={saving}
+              className="flex-1 h-10 text-sm"
+            >
+              <Check size={14} className="mr-1.5" />
+              {saving ? '保存中...' : '确认穿搭'}
+            </Button>
+          </div>
+          
+          {/* View History Link */}
+          <button
+            onClick={() => router.push('/history')}
+            className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
-            <RefreshCw size={16} className="mr-2" />
-            {t('outfit.refresh')}
-          </Button>
+            <History size={12} />
+            查看历史穿搭
+          </button>
         </div>
       </section>
 
       {/* Weather Tips */}
       {weatherTips.length > 0 && (
-        <section className="px-5 mt-4">
-          <div className="space-y-2">
+        <section className="px-5 mt-3">
+          <div className="space-y-1.5">
             {weatherTips.map((tip, index) => (
-              <div key={index} className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400">
-                <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+              <div key={index} className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400">
+                <div className="w-1 h-1 rounded-full bg-amber-500" />
                 {tip}
               </div>
             ))}
@@ -447,28 +593,70 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
         />
       )}
 
-      {/* Alternatives Modal */}
+      {/* Alternatives Modal - Centered, not bottom */}
       {showAlternatives && replacingItem && (
-        <div className="fixed inset-0 bg-background/95 backdrop-blur-xl z-50 flex items-end justify-center p-4 animate-fade-in">
-          <Card className="w-full max-w-md max-h-[60vh] overflow-hidden">
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <Card className="w-full max-w-md max-h-[70vh] overflow-hidden shadow-2xl">
             <div className="p-4 border-b border-border flex items-center justify-between">
-              <h3 className="font-medium">{t('outfit.select')} {t(`clothing.${replacingItem}`)}</h3>
+              <h3 className="font-medium">{t('outfit.select')} {replacingItem === 'hat' ? '帽子' : t(`clothing.${replacingItem}`)}</h3>
               <Button variant="ghost" size="icon" onClick={() => setShowAlternatives(false)}>
                 <XIcon />
               </Button>
             </div>
-            <div className="p-3 overflow-y-auto max-h-[40vh] space-y-2">
-              {recommendation?.alternatives?.[replacingItem]?.map(item => (
+            <div className="p-3 overflow-y-auto max-h-[50vh] space-y-2">
+              {(() => {
+                const alternatives = getAlternativeItems();
+                const currentItem = getCurrentItem();
+                
+                return alternatives.map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => selectAlternative(item)}
+                    className={`w-full p-3 flex items-center gap-3 hover:bg-muted rounded-xl transition-colors text-left ${
+                      currentItem?.id === item.id ? 'bg-primary/10 border border-primary/20' : ''
+                    }`}
+                  >
+                    <span className="text-xl">
+                      {item.category === 'top' ? '👕' : 
+                       item.category === 'bottom' ? '👖' : 
+                       item.category === 'socks' ? '🧦' : 
+                       item.category === 'hat' ? '🧢' : '👟'}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm truncate">{item.name}</div>
+                      <div className="text-xs text-muted-foreground">{t(`types.${item.subCategory}`)}</div>
+                    </div>
+                    {currentItem?.id === item.id && (
+                      <span className="text-[10px] px-1.5 py-0.5 bg-primary text-primary-foreground rounded shrink-0">当前</span>
+                    )}
+                  </button>
+                ));
+              })()}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Hat Selector Modal */}
+      {showHatSelector && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <Card className="w-full max-w-md max-h-[70vh] overflow-hidden shadow-2xl">
+            <div className="p-4 border-b border-border flex items-center justify-between">
+              <h3 className="font-medium">选择帽子</h3>
+              <Button variant="ghost" size="icon" onClick={() => setShowHatSelector(false)}>
+                <XIcon />
+              </Button>
+            </div>
+            <div className="p-3 overflow-y-auto max-h-[50vh] space-y-2">
+              {wardrobe.hats.map(item => (
                 <button
                   key={item.id}
-                  onClick={() => selectAlternative(item)}
-                  className="w-full p-3 flex items-center gap-4 hover:bg-muted rounded-xl transition-colors text-left"
+                  onClick={() => selectHat(item)}
+                  className="w-full p-3 flex items-center gap-3 hover:bg-muted rounded-xl transition-colors text-left"
                 >
-                  <span className="text-2xl">
-                    {item.category === 'top' ? '👕' : item.category === 'bottom' ? '👖' : item.category === 'socks' ? '🧦' : '👟'}
-                  </span>
-                  <div>
-                    <div className="font-medium">{item.name}</div>
+                  <span className="text-xl">🧢</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-sm truncate">{item.name}</div>
                     <div className="text-xs text-muted-foreground">{t(`types.${item.subCategory}`)}</div>
                   </div>
                 </button>
