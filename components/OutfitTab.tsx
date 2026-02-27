@@ -347,27 +347,27 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
       {/* Main Outfit Display - Core Area */}
       <section className="pt-4 px-5">
         {/* Temperature & Weather Info */}
-        {weather && (
-          <div className="flex items-center justify-between mb-6">
-            {/* Left: Temperature */}
-            <div>
-              <div className="data-large text-foreground">{weather.temp}°</div>
-              <div className="text-muted-foreground">{weather.description} · 体感 {weather.feelsLike}°</div>
-            </div>
-            
-            {/* Right: Weather Metrics */}
-            <div className="flex flex-col items-end gap-2">
-              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                <Wind size={14} />
-                <span className="font-medium tabular-nums">{Math.round(weather.windSpeed)}m/s</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                <Droplets size={14} />
-                <span className="font-medium tabular-nums">{weather.humidity}%</span>
-              </div>
+        <div className="flex items-center justify-between mb-6">
+          {/* Left: Temperature */}
+          <div>
+            <div className="data-large text-foreground">{weather?.temp ?? 15}°</div>
+            <div className="text-muted-foreground">
+              {weather?.description ?? '多云'} · 体感 {weather?.feelsLike ?? 13}°
             </div>
           </div>
-        )}
+          
+          {/* Right: Weather Metrics */}
+          <div className="flex flex-col items-end gap-2 bg-muted/50 px-3 py-2 rounded-xl">
+            <div className="flex items-center gap-1.5 text-sm text-foreground">
+              <Wind size={14} className="text-muted-foreground" />
+              <span className="font-medium tabular-nums">{Math.round(weather?.windSpeed ?? 3)}m/s</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-sm text-foreground">
+              <Droplets size={14} className="text-muted-foreground" />
+              <span className="font-medium tabular-nums">{weather?.humidity ?? 65}%</span>
+            </div>
+          </div>
+        </div>
 
         {/* Run Type Selector (only for running) */}
         {scene === 'running' && (
