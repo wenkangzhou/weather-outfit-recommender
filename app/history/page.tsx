@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Trash2, Calendar, MapPin, Wind, Droplets, Thermometer, Star, Shirt } from 'lucide-react';
 import { OutfitHistoryItem, ClothingItem } from '@/types';
 import { getOutfitHistory, deleteOutfitHistory, updateOutfitHistoryRating } from '@/lib/supabase';
@@ -9,9 +9,22 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
-export default function HistoryPage() {
+function HistoryContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const from = searchParams.get('from');
   const { toast } = useToast();
+  
+  // 返回按钮处理：根据来源决定返回目标
+  const handleBack = () => {
+    if (from === 'settings') {
+      // 返回到首页并自动切换到设置页
+      router.push('/?tab=settings');
+    } else {
+      // 默认返回首页
+      router.push('/');
+    }
+  };
   const [history, setHistory] = useState<OutfitHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -119,7 +132,7 @@ export default function HistoryPage() {
             variant="ghost" 
             size="icon" 
             className="shrink-0"
-            onClick={() => router.push('/')}
+            onClick={handleBack}
           >
             <ArrowLeft size={20} />
           </Button>
@@ -305,5 +318,22 @@ function ItemDisplay({ item, compact = false }: { item: ClothingItem; compact?: 
         )}
       </div>
     </div>
+  );
+}
+
+// Loading fallback for Suspense
+function HistoryLoading() {
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+    </div>
+  );
+}
+
+export default function HistoryPage() {
+  return (
+    <Suspense fallback={<HistoryLoading />}>
+      <HistoryContent />
+    </Suspense>
   );
 }

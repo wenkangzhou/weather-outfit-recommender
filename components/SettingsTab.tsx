@@ -106,7 +106,7 @@ export default function SettingsTab() {
             title={t('settings.outfitHistory')}
             count={historyCount}
             unit={t('settings.records')}
-            onClick={() => router.push('/history')}
+            onClick={() => router.push('/history?from=settings')}
           />
         </section>
 
