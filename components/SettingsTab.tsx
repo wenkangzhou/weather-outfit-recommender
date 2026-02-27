@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Sun, Moon, Monitor, Shirt, History, ChevronRight, Plus, X, Zap, Route, Timer } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
@@ -8,13 +8,12 @@ import { UserPreferences, ClothingItem, RunType } from '@/types';
 import { getUserPreferences, saveUserPreferences, getClothingItems } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 
 type SettingsView = 'main' | 'wardrobe' | 'history';
 
 const RUN_TYPES: { type: RunType; icon: React.ReactNode; label: string; desc: string }[] = [
   { type: 'easy', icon: <Zap size={18} />, label: '有氧跑', desc: '心率低、出汗少，可适当保暖' },
-  { type: 'long', icon: <Route size={18} />, label: '长距离', desc: '需口袋存放能量胶、水等补给' },
+  { type: 'long', icon: <Route size={18} />, label: '长距离', desc: '需携带补给，选有口袋的裤子' },
   { type: 'interval', icon: <Timer size={18} />, label: '间歇跑', desc: '速度快、出汗多，体育场可备外套' },
 ];
 
@@ -25,8 +24,9 @@ export default function SettingsTab() {
   const [currentView, setCurrentView] = useState<SettingsView>('main');
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [defaultRunType, setDefaultRunType] = useState<RunType>('easy');
-  const [saving, setSaving] = useState(false);
+  const [wardrobeCount, setWardrobeCount] = useState(0);
 
+  // Load preferences
   useEffect(() => {
     getUserPreferences().then(prefs => {
       if (prefs) {
@@ -34,28 +34,50 @@ export default function SettingsTab() {
         setDefaultRunType(prefs.defaultRunType || 'easy');
       }
     });
+    getClothingItems().then(items => setWardrobeCount(items.length));
   }, []);
 
-  const handleSave = async () => {
-    setSaving(true);
-    try {
+  // Auto-save when run type changes
+  const handleRunTypeChange = useCallback(async (type: RunType) => {
+    setDefaultRunType(type);
+    if (preferences) {
       const newPrefs: UserPreferences = {
         ...preferences,
-        id: preferences?.id || 'default',
-        location: preferences?.location || '上海',
-        defaultRunType,
+        defaultRunType: type,
       };
       await saveUserPreferences(newPrefs);
       setPreferences(newPrefs);
-    } finally {
-      setSaving(false);
     }
-  };
+  }, [preferences]);
 
-  const handleLanguageChange = (lang: 'zh' | 'en') => {
+  // Auto-save when theme changes
+  const handleThemeChange = useCallback(async (newTheme: 'system' | 'light' | 'dark') => {
+    setTheme(newTheme);
+    if (preferences) {
+      const newPrefs: UserPreferences = {
+        ...preferences,
+        id: preferences.id || 'default',
+        location: preferences.location || '上海',
+        defaultRunType,
+      };
+      // Note: theme is stored in appStore, not user preferences
+    }
+  }, [preferences, defaultRunType, setTheme]);
+
+  // Auto-save when language changes
+  const handleLanguageChange = useCallback(async (lang: 'zh' | 'en') => {
     setLanguage(lang);
     i18n.changeLanguage(lang);
-  };
+    if (preferences) {
+      const newPrefs: UserPreferences = {
+        ...preferences,
+        id: preferences.id || 'default',
+        location: preferences.location || '上海',
+        defaultRunType,
+      };
+      // Note: language is stored in appStore, not user preferences
+    }
+  }, [preferences, defaultRunType, setLanguage, i18n]);
 
   if (currentView === 'wardrobe') {
     return <WardrobeView onBack={() => setCurrentView('main')} />;
@@ -72,26 +94,22 @@ export default function SettingsTab() {
       </header>
 
       <div className="px-5 space-y-6">
-        {/* Quick Access */}
-        <section>
-          <div className="quick-access-grid">
-            <QuickAccessCard 
-              icon={<Shirt size={22} />}
-              title={t('settings.myWardrobe')}
-              count={0}
-              unit={t('settings.items')}
-              color="bg-amber-500"
-              onClick={() => setCurrentView('wardrobe')}
-            />
-            <QuickAccessCard 
-              icon={<History size={22} />}
-              title={t('settings.outfitHistory')}
-              count={0}
-              unit={t('settings.records')}
-              color="bg-emerald-500"
-              onClick={() => setCurrentView('history')}
-            />
-          </div>
+        {/* Quick Access - Full Width */}
+        <section className="space-y-3">
+          <QuickAccessRow 
+            icon={<Shirt size={20} />}
+            title={t('settings.myWardrobe')}
+            count={wardrobeCount}
+            unit={t('settings.items')}
+            onClick={() => setCurrentView('wardrobe')}
+          />
+          <QuickAccessRow 
+            icon={<History size={20} />}
+            title={t('settings.outfitHistory')}
+            count={0}
+            unit={t('settings.records')}
+            onClick={() => setCurrentView('history')}
+          />
         </section>
 
         {/* Running Type */}
@@ -110,7 +128,7 @@ export default function SettingsTab() {
                 label={run.label}
                 desc={run.desc}
                 active={defaultRunType === run.type}
-                onClick={() => setDefaultRunType(run.type)}
+                onClick={() => handleRunTypeChange(run.type)}
               />
             ))}
           </div>
@@ -130,19 +148,19 @@ export default function SettingsTab() {
                 icon={<Monitor size={18} />}
                 label={t('settings.system')}
                 active={theme === 'system'}
-                onClick={() => setTheme('system')}
+                onClick={() => handleThemeChange('system')}
               />
               <OptionButton 
                 icon={<Sun size={18} />}
                 label={t('settings.light')}
                 active={theme === 'light'}
-                onClick={() => setTheme('light')}
+                onClick={() => handleThemeChange('light')}
               />
               <OptionButton 
                 icon={<Moon size={18} />}
                 label={t('settings.dark')}
                 active={theme === 'dark'}
-                onClick={() => setTheme('dark')}
+                onClick={() => handleThemeChange('dark')}
               />
             </div>
           </Card>
@@ -164,19 +182,6 @@ export default function SettingsTab() {
           </Card>
         </section>
 
-        {/* Save Button */}
-        <Button
-          onClick={handleSave}
-          disabled={saving}
-          className="w-full h-12 text-base font-medium"
-        >
-          {saving ? (
-            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          ) : (
-            t('settings.save')
-          )}
-        </Button>
-
         <div className="h-4" />
       </div>
     </div>
@@ -184,6 +189,32 @@ export default function SettingsTab() {
 }
 
 // ========== Components ==========
+
+function QuickAccessRow({ icon, title, count, unit, onClick }: {
+  icon: React.ReactNode;
+  title: string;
+  count: number;
+  unit: string;
+  onClick: () => void;
+}) {
+  return (
+    <button 
+      onClick={onClick}
+      className="w-full flex items-center gap-4 p-4 bg-card border border-border rounded-2xl hover:border-border/80 hover:bg-accent transition-all active:scale-[0.99]"
+    >
+      <div className="w-11 h-11 rounded-xl bg-muted flex items-center justify-center text-muted-foreground">
+        {icon}
+      </div>
+      <div className="flex-1 text-left">
+        <div className="text-xs uppercase tracking-wide text-muted-foreground mb-0.5">{title}</div>
+        <div className="text-base font-medium tabular-nums">
+          {count} <span className="text-sm font-normal text-muted-foreground">{unit}</span>
+        </div>
+      </div>
+      <ChevronRight size={18} className="text-muted-foreground" />
+    </button>
+  );
+}
 
 function RunTypeCard({ type, icon, label, desc, active, onClick }: {
   type: RunType;
@@ -218,30 +249,6 @@ function RunTypeCard({ type, icon, label, desc, active, onClick }: {
           {active && <div className="w-2 h-2 rounded-full bg-primary-foreground" />}
         </div>
       </div>
-    </button>
-  );
-}
-
-function QuickAccessCard({ icon, title, count, unit, color, onClick }: {
-  icon: React.ReactNode;
-  title: string;
-  count: number;
-  unit: string;
-  color: string;
-  onClick: () => void;
-}) {
-  return (
-    <button onClick={onClick} className="quick-access-card">
-      <div className={`quick-access-icon ${color}`}>
-        {icon}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="text-xs uppercase tracking-wide text-muted-foreground mb-0.5">{title}</div>
-        <div className="text-lg font-medium tabular-nums">
-          {count} <span className="text-sm font-normal text-muted-foreground">{unit}</span>
-        </div>
-      </div>
-      <ChevronRight size={16} className="text-muted-foreground" />
     </button>
   );
 }
