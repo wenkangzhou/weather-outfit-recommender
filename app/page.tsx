@@ -2,14 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Shirt, User } from 'lucide-react';
+import { Shirt, Settings } from 'lucide-react';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { I18nProvider } from '@/components/I18nProvider';
 import OutfitTab from '@/components/OutfitTab';
 import SettingsTab from '@/components/SettingsTab';
 import { getCurrentWeather, getMockWeather } from '@/lib/weather';
 import { getUserPreferences } from '@/lib/supabase';
-import { useAppStore, useActualTheme } from '@/store/appStore';
+import { useActualTheme } from '@/store/appStore';
 import { WeatherData, UserPreferences } from '@/types';
 
 type Tab = 'outfit' | 'settings';
@@ -58,7 +58,7 @@ function AppContent() {
     return (
       <main className={`min-h-screen ${bgClass}`}>
         <div className="h-screen flex items-center justify-center">
-          <div className="w-10 h-10 border-[3px] border-white/30 border-t-white rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
         </div>
       </main>
     );
@@ -69,18 +69,18 @@ function AppContent() {
       <div className="relative min-h-screen max-w-md mx-auto">
         {activeTab === 'outfit' ? <OutfitTab weather={weather} /> : <SettingsTab />}
 
-        {/* 液态玻璃 Tab Bar */}
-        <nav className="tab-bar">
-          <TabButton 
+        {/* Bottom Navigation */}
+        <nav className="bottom-nav">
+          <NavItem 
             active={activeTab === 'outfit'} 
             onClick={() => setActiveTab('outfit')}
-            icon={<Shirt size={24} strokeWidth={1.5} />}
+            icon={<Shirt size={20} strokeWidth={1.5} />}
             label={t('nav.outfit')}
           />
-          <TabButton 
+          <NavItem 
             active={activeTab === 'settings'} 
             onClick={() => setActiveTab('settings')}
-            icon={<User size={24} strokeWidth={1.5} />}
+            icon={<Settings size={20} strokeWidth={1.5} />}
             label={t('nav.settings')}
           />
         </nav>
@@ -89,7 +89,7 @@ function AppContent() {
   );
 }
 
-function TabButton({ active, onClick, icon, label }: {
+function NavItem({ active, onClick, icon, label }: {
   active: boolean;
   onClick: () => void;
   icon: React.ReactNode;
@@ -98,10 +98,10 @@ function TabButton({ active, onClick, icon, label }: {
   return (
     <button
       onClick={onClick}
-      className={`tab-button ${active ? 'active' : ''}`}
+      className={`nav-item ${active ? 'active' : ''}`}
     >
-      <span className="tab-button-icon">{icon}</span>
-      <span className="tab-button-label">{label}</span>
+      {icon}
+      <span>{label}</span>
     </button>
   );
 }
