@@ -25,9 +25,11 @@ export default function SettingsTab() {
   const [defaultRunType, setDefaultRunType] = useState<RunType>('easy');
   const [wardrobeCount, setWardrobeCount] = useState(0);
   const [showRunTypePicker, setShowRunTypePicker] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   // Load preferences
   useEffect(() => {
+    setMounted(true);
     getUserPreferences().then(prefs => {
       if (prefs) {
         setPreferences(prefs);
@@ -50,6 +52,19 @@ export default function SettingsTab() {
     }
     setShowRunTypePicker(false);
   }, [preferences]);
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen pb-28">
+        <header className="pt-12 pb-6 px-5">
+          <h1 className="text-[28px] font-semibold tracking-tight">{t('settings.title')}</h1>
+        </header>
+        <div className="flex items-center justify-center h-64">
+          <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen pb-28 animate-fade-in">

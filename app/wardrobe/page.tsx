@@ -80,8 +80,10 @@ function WardrobeContent() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingItem, setEditingItem] = useState<ClothingItem | null>(null);
   const [deletingItem, setDeletingItem] = useState<ClothingItem | null>(null);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     loadItems();
   }, []);
 
@@ -141,7 +143,7 @@ function WardrobeContent() {
 
         {/* Content */}
         <div className="px-5 pb-8">
-          {loading ? (
+          {!mounted || loading ? (
             <div className="flex items-center justify-center h-64">
               <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
             </div>
