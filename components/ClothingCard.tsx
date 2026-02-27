@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslation } from 'react-i18next';
 import { RefreshCw } from 'lucide-react';
 import { ClothingItem } from '@/types';
 
@@ -10,77 +11,48 @@ interface ClothingCardProps {
 }
 
 export default function ClothingCard({ item, label, onReplace }: ClothingCardProps) {
-  const getCategoryEmoji = (category: string) => {
-    const emojis: Record<string, string> = {
-      top: '👕',
-      bottom: '👖',
-      socks: '🧦',
-      shoes: '👟',
-    };
-    return emojis[category] || '👔';
-  };
-
-  const getSubCategoryLabel = (sub: string) => {
-    const labels: Record<string, string> = {
-      't-shirt': 'T恤',
-      'long-sleeve': '长袖',
-      'sweater': '毛衣',
-      'hoodie': '卫衣',
-      'jacket': '夹克',
-      'down-jacket': '羽绒服',
-      'windbreaker': '冲锋衣',
-      'shorts': '短裤',
-      'pants': '长裤',
-      'sweatpants': '运动裤',
-      'thermal-pants': '保暖裤',
-      'short-socks': '短袜',
-      'long-socks': '长袜',
-      'thick-socks': '厚袜',
-      'sneakers': '运动鞋',
-      'running-shoes': '跑鞋',
-      'casual-shoes': '休闲鞋',
-      'boots': '靴子',
-    };
-    return labels[sub] || sub;
-  };
+  const { t } = useTranslation();
 
   return (
-    <div className="glass-card p-4 relative group">
+    <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-3 relative group border border-white/10 hover:bg-white/15 transition-colors">
+      {/* 替换按钮 */}
       <button
         onClick={onReplace}
-        className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/10 hover:bg-white/30 flex items-center justify-center text-white/60 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+        className="absolute top-2 right-2 w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
       >
-        <RefreshCw size={14} />
+        <RefreshCw size={12} />
       </button>
       
-      <div className="text-white/50 text-xs font-medium mb-3 uppercase tracking-wider">
+      {/* 标签 */}
+      <div className="text-[10px] uppercase tracking-wider opacity-50 mb-1">
         {label}
       </div>
       
-      <div className="flex items-center gap-3">
-        {item.imageUrl ? (
-          <img
-            src={item.imageUrl}
-            alt={item.name}
-            className="w-14 h-14 rounded-xl object-cover bg-white/10"
-          />
-        ) : (
-          <div className="w-14 h-14 rounded-xl bg-white/10 flex items-center justify-center text-3xl">
-            {getCategoryEmoji(item.category)}
-          </div>
-        )}
-        
-        <div className="flex-1 min-w-0">
-          <div className="text-white font-medium truncate text-base">{item.name}</div>
-          <div className="text-white/50 text-sm">{getSubCategoryLabel(item.subCategory)}</div>
-          <div className="flex items-center gap-1.5 mt-1.5">
-            <span className="text-sm">
-              {'🔥'.repeat(Math.max(1, Math.min(3, Math.ceil(item.warmthLevel / 3))))}
-            </span>
-            {item.waterResistant && <span className="text-xs bg-blue-500/30 text-blue-200 px-1.5 py-0.5 rounded">防水</span>}
-            {item.windResistant && <span className="text-xs bg-gray-500/30 text-gray-200 px-1.5 py-0.5 rounded">防风</span>}
-          </div>
+      {/* 内容 */}
+      <div className="flex items-center gap-2">
+        <div className="text-2xl">
+          {item.category === 'top' ? '👕' : 
+           item.category === 'bottom' ? '👖' : 
+           item.category === 'socks' ? '🧦' : '👟'}
         </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium truncate">{item.name}</div>
+          <div className="text-xs opacity-50">{t(`types.${item.subCategory}`)}</div>
+        </div>
+      </div>
+      
+      {/* 属性标签 */}
+      <div className="flex gap-1 mt-2">
+        {item.waterResistant && (
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300">
+            {t('clothing.waterproof')}
+          </span>
+        )}
+        {item.windResistant && (
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-500/20 text-gray-300">
+            {t('clothing.windproof')}
+          </span>
+        )}
       </div>
     </div>
   );

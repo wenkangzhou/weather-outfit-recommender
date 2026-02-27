@@ -1,0 +1,117 @@
+{
+  "nav": {
+    "outfit": "穿搭",
+    "settings": "设置"
+  },
+  "weather": {
+    "tempHigh": "高",
+    "tempLow": "低",
+    "humidity": "湿度",
+    "windSpeed": "风速",
+    "feelsLike": "体感"
+  },
+  "scene": {
+    "commute": "通勤",
+    "running": "跑步"
+  },
+  "clothing": {
+    "top": "上衣",
+    "bottom": "下装",
+    "socks": "袜子",
+    "shoes": "鞋子",
+    "waterproof": "防水",
+    "windproof": "防风"
+  },
+  "outfit": {
+    "refresh": "重新推荐",
+    "emptyWardrobe": "衣柜还是空的",
+    "emptyWardrobeDesc": "先去「我的」页面录入你的衣服，我就能为你推荐穿搭了",
+    "select": "选择",
+    "todayOutfit": "今日穿搭"
+  },
+  "settings": {
+    "title": "设置",
+    "myWardrobe": "我的衣柜",
+    "outfitHistory": "穿搭历史",
+    "personalization": "个性化设置",
+    "appearance": "外观",
+    "basic": "基本设置",
+    "bodyPreference": "体感偏好",
+    "items": "件衣物",
+    "records": "条记录",
+    "theme": "主题",
+    "system": "跟随系统",
+    "light": "浅色",
+    "dark": "深色",
+    "language": "语言",
+    "location": "所在城市",
+    "enterLocation": "输入城市名称",
+    "commuteDistance": "通勤距离",
+    "runDistance": "跑步距离",
+    "coldSensitive": "怕冷程度",
+    "hotSensitive": "怕热程度",
+    "sweatLevel": "出汗程度",
+    "sweat_low": "少汗",
+    "sweat_medium": "中等",
+    "sweat_high": "多汗",
+    "windSensitivity": "抗风能力",
+    "normal": "一般",
+    "sensitive": "敏感",
+    "rainPreference": "下雨偏好",
+    "rain_avoid": "避雨",
+    "rain_ok": "可接受",
+    "rain_like": "喜欢",
+    "save": "保存设置"
+  },
+  "form": {
+    "location": "所在城市",
+    "commuteDistance": "通勤距离",
+    "runDistance": "跑步距离",
+    "km": "公里",
+    "coldSensitivity": "怕冷程度",
+    "hotSensitivity": "怕热程度",
+    "sweatLevel": "出汗程度",
+    "sweatLow": "少汗",
+    "sweatMedium": "中等",
+    "sweatHigh": "多汗",
+    "windSensitive": "对风敏感",
+    "save": "保存设置",
+    "cancel": "取消",
+    "delete": "删除",
+    "add": "添加",
+    "back": "返回"
+  },
+  "appearance": {
+    "theme": "主题",
+    "themeSystem": "跟随系统",
+    "themeLight": "浅色",
+    "themeDark": "深色",
+    "language": "语言",
+    "langZh": "中文",
+    "langEn": "English"
+  },
+  "types": {
+    "t-shirt": "T恤",
+    "long-sleeve": "长袖",
+    "sweater": "毛衣",
+    "hoodie": "卫衣",
+    "jacket": "夹克",
+    "down-jacket": "羽绒服",
+    "windbreaker": "冲锋衣",
+    "shorts": "短裤",
+    "pants": "长裤",
+    "sweatpants": "运动裤",
+    "thermal-pants": "保暖裤",
+    "short-socks": "短袜",
+    "long-socks": "长袜",
+    "thick-socks": "厚袜",
+    "sneakers": "运动鞋",
+    "running-shoes": "跑鞋",
+    "casual-shoes": "休闲鞋",
+    "boots": "靴子"
+  },
+  "status": {
+    "locating": "定位中...",
+    "noHistory": "还没有穿搭记录"
+  }
+}

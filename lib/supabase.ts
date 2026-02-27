@@ -45,6 +45,20 @@ const first = <T>(data: T[] | null): T | null => {
   return data && data.length > 0 ? data[0] : null;
 };
 
+// Helper: map rain preference from DB to app type
+const mapRainPreference = (dbValue: string): 'avoid' | 'ok' | 'like' => {
+  if (dbValue === 'acceptable') return 'ok';
+  if (dbValue === 'brave') return 'like';
+  return dbValue as 'avoid' | 'ok' | 'like';
+};
+
+// Helper: map rain preference from app type to DB type
+const mapRainPreferenceToDb = (appValue: 'avoid' | 'ok' | 'like'): string => {
+  if (appValue === 'ok') return 'acceptable';
+  if (appValue === 'like') return 'brave';
+  return appValue;
+};
+
 // Database row types (use any for flexibility)
 interface ClothingItemRow {
   id: string;
@@ -228,7 +242,7 @@ export async function getUserPreferences(): Promise<UserPreferences | null> {
     hotSensitivity: record.hot_sensitivity,
     sweatLevel: record.sweat_level,
     windSensitivity: record.wind_sensitivity,
-    rainPreference: record.rain_preference,
+    rainPreference: mapRainPreference(record.rain_preference),
   };
 }
 
@@ -254,7 +268,7 @@ export async function saveUserPreferences(prefs: Omit<UserPreferences, 'id'>): P
     hot_sensitivity: prefs.hotSensitivity,
     sweat_level: prefs.sweatLevel,
     wind_sensitivity: prefs.windSensitivity,
-    rain_preference: prefs.rainPreference,
+    rain_preference: mapRainPreferenceToDb(prefs.rainPreference),
   };
   
   if (existing) {

@@ -29,6 +29,7 @@ export interface WeatherData {
   description: string;
   isRaining: boolean;
   uvIndex?: number;
+  cityName?: string; // 城市名称
 }
 
 // Outfit types
@@ -57,7 +58,7 @@ export interface UserPreferences {
   hotSensitivity: number; // 1-5, higher means more sensitive to heat
   sweatLevel: 'low' | 'medium' | 'high';
   windSensitivity: boolean;
-  rainPreference: 'avoid' | 'acceptable' | 'brave';
+  rainPreference: 'avoid' | 'ok' | 'like';
 }
 
 // History entry

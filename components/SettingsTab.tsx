@@ -1,472 +1,356 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Settings, Package, History, Plus, Trash2, ChevronRight, MapPin } from 'lucide-react';
-import { ClothingItem, ClothingCategory, ClothingSubCategory, UserPreferences, Outfit } from '@/types';
-import { getClothingItems, addClothingItem, deleteClothingItem, getUserPreferences, saveUserPreferences, getOutfitHistory } from '@/lib/supabase';
-
-const SUB_CATEGORIES: Record<ClothingCategory, { value: ClothingSubCategory; label: string }[]> = {
-  top: [
-    { value: 't-shirt', label: 'T恤' },
-    { value: 'long-sleeve', label: '长袖' },
-    { value: 'sweater', label: '毛衣' },
-    { value: 'hoodie', label: '卫衣' },
-    { value: 'jacket', label: '夹克' },
-    { value: 'down-jacket', label: '羽绒服' },
-    { value: 'windbreaker', label: '冲锋衣' },
-  ],
-  bottom: [
-    { value: 'shorts', label: '短裤' },
-    { value: 'pants', label: '长裤' },
-    { value: 'sweatpants', label: '运动裤' },
-    { value: 'thermal-pants', label: '保暖裤' },
-  ],
-  socks: [
-    { value: 'short-socks', label: '短袜' },
-    { value: 'long-socks', label: '长袜' },
-    { value: 'thick-socks', label: '厚袜' },
-  ],
-  shoes: [
-    { value: 'sneakers', label: '运动鞋' },
-    { value: 'running-shoes', label: '跑鞋' },
-    { value: 'casual-shoes', label: '休闲鞋' },
-    { value: 'boots', label: '靴子' },
-  ],
-};
+import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Sun, Moon, Monitor, Thermometer, Wind, Droplets, MapPin, Route } from 'lucide-react';
+import { useAppStore } from '@/store/appStore';
+import { UserPreferences } from '@/types';
+import { getUserPreferences, saveUserPreferences } from '@/lib/supabase';
 
 export default function SettingsTab() {
-  const [activeSection, setActiveSection] = useState<'menu' | 'wardrobe' | 'history' | 'settings'>('menu');
-  const [clothingItems, setClothingItems] = useState<ClothingItem[]>([]);
-  const [outfitHistory, setOutfitHistory] = useState<Outfit[]>([]);
+  const { t, i18n } = useTranslation();
+  const { theme, setTheme, language, setLanguage } = useAppStore();
+  
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [location, setLocation] = useState('');
+  const [commuteDistance, setCommuteDistance] = useState(5);
+  const [runDistance, setRunDistance] = useState(5);
+  const [coldSensitivity, setColdSensitivity] = useState(3);
+  const [hotSensitivity, setHotSensitivity] = useState(3);
+  const [sweatLevel, setSweatLevel] = useState<'low' | 'medium' | 'high'>('medium');
+  const [windSensitivity, setWindSensitivity] = useState(false);
+  const [rainPreference, setRainPreference] = useState<'avoid' | 'ok' | 'like'>('avoid');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    loadData();
+    getUserPreferences().then(prefs => {
+      if (prefs) {
+        setPreferences(prefs);
+        setLocation(prefs.location || '');
+        setCommuteDistance(prefs.commuteDistance || 5);
+        setRunDistance(prefs.runDistance || 5);
+        setColdSensitivity(prefs.coldSensitivity || 3);
+        setHotSensitivity(prefs.hotSensitivity || 3);
+        setSweatLevel(prefs.sweatLevel || 'medium');
+        setWindSensitivity(prefs.windSensitivity || false);
+        setRainPreference(prefs.rainPreference || 'avoid');
+      }
+    });
   }, []);
 
-  const loadData = async () => {
+  const handleSave = useCallback(async () => {
+    setSaving(true);
     try {
-      const [items, prefs, history] = await Promise.all([
-        getClothingItems(),
-        getUserPreferences(),
-        getOutfitHistory(),
-      ]);
-      setClothingItems(items);
-      setPreferences(prefs);
-      setOutfitHistory(history);
-    } catch (error) {
-      console.error('Failed to load data:', error);
+      const newPrefs: UserPreferences = {
+        ...preferences,
+        id: preferences?.id || 'default',
+        location,
+        commuteDistance,
+        runDistance,
+        coldSensitivity,
+        hotSensitivity,
+        sweatLevel,
+        windSensitivity,
+        rainPreference,
+      };
+      await saveUserPreferences(newPrefs);
+      setPreferences(newPrefs);
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
+  }, [preferences, location, commuteDistance, runDistance, coldSensitivity, hotSensitivity, sweatLevel, windSensitivity, rainPreference]);
+
+  const handleLanguageChange = (lang: 'zh' | 'en') => {
+    setLanguage(lang);
+    i18n.changeLanguage(lang);
   };
 
-  const handleDeleteItem = async (id: string) => {
-    if (!confirm('确定删除这件衣服吗？')) return;
-    try {
-      await deleteClothingItem(id);
-      setClothingItems(prev => prev.filter(item => item.id !== id));
-    } catch (error) {
-      alert('删除失败');
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="w-8 h-8 border-3 border-white/30 border-t-white rounded-full animate-spin" />
+  return (
+    <div className="min-h-screen pb-32">
+      {/* Header */}
+      <div className="pt-14 pb-6 px-5">
+        <h1 className="text-3xl font-bold text-white">{t('settings.title')}</h1>
       </div>
-    );
-  }
 
-  if (activeSection === 'menu') {
-    return (
-      <div className="space-y-4 animate-fade-in">
-        <div className="text-center py-8">
-          <h1 className="text-3xl font-semibold text-white mb-2">设置</h1>
-          <p className="text-white/60">管理你的衣柜和偏好</p>
-        </div>
-        
-        <div className="space-y-3">
-          <MenuCard
-            icon={<Package className="text-blue-400" size={24} />}
-            title="我的衣柜"
-            subtitle={`${clothingItems.length} 件衣物`}
-            onClick={() => setActiveSection('wardrobe')}
-          />
-          <MenuCard
-            icon={<History className="text-green-400" size={24} />}
-            title="穿搭历史"
-            subtitle={`${outfitHistory.length} 条记录`}
-            onClick={() => setActiveSection('history')}
-          />
-          <MenuCard
-            icon={<Settings className="text-purple-400" size={24} />}
-            title="个性化设置"
-            subtitle="位置、偏好、体感"
-            onClick={() => setActiveSection('settings')}
-          />
-        </div>
+      <div className="px-5 space-y-5">
+        {/* ========== 外观设置 ========== */}
+        <section className="settings-section">
+          <div className="section-header">
+            <Sun size={18} className="text-amber-400" />
+            <span>{t('settings.appearance')}</span>
+          </div>
+          
+          {/* 主题选择 */}
+          <div className="settings-card">
+            <div className="settings-card-header">{t('settings.theme')}</div>
+            <div className="settings-options-row">
+              <ThemeOption 
+                icon={<Monitor size={22} />}
+                label={t('settings.system')}
+                active={theme === 'system'}
+                onClick={() => setTheme('system')}
+              />
+              <ThemeOption 
+                icon={<Sun size={22} />}
+                label={t('settings.light')}
+                active={theme === 'light'}
+                onClick={() => setTheme('light')}
+              />
+              <ThemeOption 
+                icon={<Moon size={22} />}
+                label={t('settings.dark')}
+                active={theme === 'dark'}
+                onClick={() => setTheme('dark')}
+              />
+            </div>
+          </div>
+
+          {/* 语言选择 */}
+          <div className="settings-card">
+            <div className="settings-card-header">{t('settings.language')}</div>
+            <div className="settings-options-row">
+              <LangOption 
+                label="中文"
+                active={language === 'zh'}
+                onClick={() => handleLanguageChange('zh')}
+              />
+              <LangOption 
+                label="English"
+                active={language === 'en'}
+                onClick={() => handleLanguageChange('en')}
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* ========== 基本设置 ========== */}
+        <section className="settings-section">
+          <div className="section-header">
+            <MapPin size={18} className="text-emerald-400" />
+            <span>{t('settings.basic')}</span>
+          </div>
+
+          {/* 城市输入 */}
+          <div className="settings-card">
+            <div className="settings-card-header">{t('settings.location')}</div>
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder={t('settings.enterLocation')}
+              className="settings-input"
+            />
+          </div>
+
+          {/* 距离设置 */}
+          <div className="settings-card">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="settings-card-header">{t('settings.commuteDistance')}</div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={commuteDistance}
+                    onChange={(e) => setCommuteDistance(Number(e.target.value))}
+                    className="settings-input-number"
+                  />
+                  <span className="text-white/50 text-sm">km</span>
+                </div>
+              </div>
+              <div>
+                <div className="settings-card-header">{t('settings.runDistance')}</div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={runDistance}
+                    onChange={(e) => setRunDistance(Number(e.target.value))}
+                    className="settings-input-number"
+                  />
+                  <span className="text-white/50 text-sm">km</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ========== 体感偏好 ========== */}
+        <section className="settings-section">
+          <div className="section-header">
+            <Thermometer size={18} className="text-rose-400" />
+            <span>{t('settings.bodyPreference')}</span>
+          </div>
+
+          {/* 怕冷程度 */}
+          <div className="settings-card">
+            <div className="settings-card-header flex justify-between">
+              <span>{t('settings.coldSensitive')}</span>
+              <span className="text-white/70">{coldSensitivity}/5</span>
+            </div>
+            <div className="flex gap-2 mt-3">
+              {[1, 2, 3, 4, 5].map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setColdSensitivity(v)}
+                  className={`flex-1 h-10 rounded-xl text-sm font-medium transition-all ${
+                    coldSensitivity >= v 
+                      ? 'bg-gradient-to-r from-blue-500 to-cyan-400 text-white shadow-lg shadow-blue-500/30' 
+                      : 'bg-white/5 text-white/40 hover:bg-white/10'
+                  }`}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 怕热程度 */}
+          <div className="settings-card">
+            <div className="settings-card-header flex justify-between">
+              <span>{t('settings.hotSensitive')}</span>
+              <span className="text-white/70">{hotSensitivity}/5</span>
+            </div>
+            <div className="flex gap-2 mt-3">
+              {[1, 2, 3, 4, 5].map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setHotSensitivity(v)}
+                  className={`flex-1 h-10 rounded-xl text-sm font-medium transition-all ${
+                    hotSensitivity >= v 
+                      ? 'bg-gradient-to-r from-orange-500 to-amber-400 text-white shadow-lg shadow-orange-500/30' 
+                      : 'bg-white/5 text-white/40 hover:bg-white/10'
+                  }`}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 出汗程度 */}
+          <div className="settings-card">
+            <div className="settings-card-header">{t('settings.sweatLevel')}</div>
+            <div className="flex gap-2 mt-3">
+              {(['low', 'medium', 'high'] as const).map((level) => (
+                <button
+                  key={level}
+                  onClick={() => setSweatLevel(level)}
+                  className={`flex-1 h-10 rounded-xl text-sm font-medium transition-all ${
+                    sweatLevel === level
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-400 text-white shadow-lg shadow-emerald-500/30' 
+                      : 'bg-white/5 text-white/40 hover:bg-white/10'
+                  }`}
+                >
+                  {t(`settings.sweat_${level}`)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 抗风能力 */}
+          <div className="settings-card">
+            <div className="settings-card-header">{t('settings.windSensitivity')}</div>
+            <div className="flex gap-2 mt-3">
+              <button
+                onClick={() => setWindSensitivity(false)}
+                className={`flex-1 h-10 rounded-xl text-sm font-medium transition-all ${
+                  !windSensitivity
+                    ? 'bg-gradient-to-r from-indigo-500 to-purple-400 text-white shadow-lg shadow-indigo-500/30' 
+                    : 'bg-white/5 text-white/40 hover:bg-white/10'
+                }`}
+              >
+                {t('settings.normal')}
+              </button>
+              <button
+                onClick={() => setWindSensitivity(true)}
+                className={`flex-1 h-10 rounded-xl text-sm font-medium transition-all ${
+                  windSensitivity
+                    ? 'bg-gradient-to-r from-indigo-500 to-purple-400 text-white shadow-lg shadow-indigo-500/30' 
+                    : 'bg-white/5 text-white/40 hover:bg-white/10'
+                }`}
+              >
+                {t('settings.sensitive')}
+              </button>
+            </div>
+          </div>
+
+          {/* 下雨偏好 */}
+          <div className="settings-card">
+            <div className="settings-card-header">{t('settings.rainPreference')}</div>
+            <div className="flex gap-2 mt-3">
+              {(['avoid', 'ok', 'like'] as const).map((pref) => (
+                <button
+                  key={pref}
+                  onClick={() => setRainPreference(pref)}
+                  className={`flex-1 h-10 rounded-xl text-sm font-medium transition-all ${
+                    rainPreference === pref
+                      ? 'bg-gradient-to-r from-sky-500 to-blue-400 text-white shadow-lg shadow-sky-500/30' 
+                      : 'bg-white/5 text-white/40 hover:bg-white/10'
+                  }`}
+                >
+                  {t(`settings.rain_${pref}`)}
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* 保存按钮 */}
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="primary-button w-full flex items-center justify-center gap-2"
+        >
+          {saving ? (
+            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          ) : (
+            t('settings.save')
+          )}
+        </button>
+
+        <div className="h-8" />
       </div>
-    );
-  }
-
-  if (activeSection === 'wardrobe') {
-    return (
-      <WardrobeView
-        items={clothingItems}
-        onBack={() => setActiveSection('menu')}
-        onAddItem={(item) => setClothingItems(prev => [item, ...prev])}
-        onDeleteItem={handleDeleteItem}
-      />
-    );
-  }
-
-  if (activeSection === 'history') {
-    return (
-      <HistoryView
-        history={outfitHistory}
-        onBack={() => setActiveSection('menu')}
-      />
-    );
-  }
-
-  if (activeSection === 'settings') {
-    return (
-      <SettingsView
-        preferences={preferences}
-        onBack={() => setActiveSection('menu')}
-        onSave={(prefs) => {
-          setPreferences(prefs);
-          setActiveSection('menu');
-        }}
-      />
-    );
-  }
-
-  return null;
+    </div>
+  );
 }
 
-function MenuCard({ icon, title, subtitle, onClick }: {
+// 主题选项组件
+function ThemeOption({ icon, label, active, onClick }: {
   icon: React.ReactNode;
-  title: string;
-  subtitle: string;
+  label: string;
+  active: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       onClick={onClick}
-      className="w-full glass-card p-4 flex items-center gap-4 hover:bg-white/20 transition-all active:scale-[0.98]"
+      className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl transition-all duration-200 ${
+        active 
+          ? 'bg-white/20 text-white shadow-lg' 
+          : 'bg-transparent text-white/50 hover:bg-white/5'
+      }`}
     >
-      <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center">
-        {icon}
-      </div>
-      <div className="flex-1 text-left">
-        <div className="text-white font-semibold text-lg">{title}</div>
-        <div className="text-white/50 text-sm">{subtitle}</div>
-      </div>
-      <ChevronRight size={20} className="text-white/40" />
+      <span className={active ? 'text-white' : 'text-white/60'}>{icon}</span>
+      <span className="text-xs font-medium">{label}</span>
     </button>
   );
 }
 
-function WardrobeView({ items, onBack, onAddItem, onDeleteItem }: {
-  items: ClothingItem[];
-  onBack: () => void;
-  onAddItem: (item: ClothingItem) => void;
-  onDeleteItem: (id: string) => void;
+// 语言选项组件
+function LangOption({ label, active, onClick }: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
 }) {
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [category, setCategory] = useState<ClothingCategory>('top');
-  const [formData, setFormData] = useState({
-    name: '',
-    subCategory: '',
-    warmthLevel: 5,
-    waterResistant: false,
-    windResistant: false,
-    color: '#ffffff',
-  });
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const newItem = await addClothingItem({
-        ...formData,
-        category,
-        subCategory: formData.subCategory as ClothingSubCategory,
-        imageUrl: undefined,
-      });
-      onAddItem(newItem);
-      setShowAddForm(false);
-      setFormData({ name: '', subCategory: '', warmthLevel: 5, waterResistant: false, windResistant: false, color: '#ffffff' });
-    } catch (error) {
-      alert('添加失败');
-    }
-  };
-
-  const groupedItems = {
-    top: items.filter(i => i.category === 'top'),
-    bottom: items.filter(i => i.category === 'bottom'),
-    socks: items.filter(i => i.category === 'socks'),
-    shoes: items.filter(i => i.category === 'shoes'),
-  };
-
-  const categoryLabels: Record<string, string> = {
-    top: '上衣',
-    bottom: '下装',
-    socks: '袜子',
-    shoes: '鞋子',
-  };
-
   return (
-    <div className="animate-fade-in">
-      <div className="flex items-center justify-between mb-6">
-        <button onClick={onBack} className="text-white/70 hover:text-white flex items-center gap-1">
-          ← 返回
-        </button>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white"
-        >
-          <Plus size={20} />
-        </button>
-      </div>
-
-      <h2 className="text-2xl font-semibold text-white mb-6">我的衣柜</h2>
-
-      {showAddForm && (
-        <div className="glass-card p-4 mb-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <select
-              value={category}
-              onChange={(e) => { setCategory(e.target.value as ClothingCategory); setFormData(prev => ({ ...prev, subCategory: '' })); }}
-              className="w-full p-3 bg-white/10 border border-white/20 rounded-xl text-white"
-            >
-              <option value="top" className="bg-gray-800">上衣</option>
-              <option value="bottom" className="bg-gray-800">下装</option>
-              <option value="socks" className="bg-gray-800">袜子</option>
-              <option value="shoes" className="bg-gray-800">鞋子</option>
-            </select>
-
-            <input
-              type="text"
-              placeholder="名称（如：白色T恤）"
-              value={formData.name}
-              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              className="w-full p-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40"
-              required
-            />
-
-            <select
-              value={formData.subCategory}
-              onChange={(e) => setFormData(prev => ({ ...prev, subCategory: e.target.value }))}
-              className="w-full p-3 bg-white/10 border border-white/20 rounded-xl text-white"
-              required
-            >
-              <option value="" className="bg-gray-800">选择类型</option>
-              {SUB_CATEGORIES[category].map(sub => (
-                <option key={sub.value} value={sub.value} className="bg-gray-800">{sub.label}</option>
-              ))}
-            </select>
-
-            <div>
-              <label className="text-white/70 text-sm">保暖度: {formData.warmthLevel}</label>
-              <input
-                type="range"
-                min="1"
-                max="10"
-                value={formData.warmthLevel}
-                onChange={(e) => setFormData(prev => ({ ...prev, warmthLevel: parseInt(e.target.value) }))}
-                className="w-full mt-2 accent-white"
-              />
-            </div>
-
-            <div className="flex gap-4">
-              <label className="flex items-center gap-2 text-white/80">
-                <input type="checkbox" checked={formData.waterResistant} onChange={(e) => setFormData(prev => ({ ...prev, waterResistant: e.target.checked }))} className="accent-blue-500" />
-                防水
-              </label>
-              <label className="flex items-center gap-2 text-white/80">
-                <input type="checkbox" checked={formData.windResistant} onChange={(e) => setFormData(prev => ({ ...prev, windResistant: e.target.checked }))} className="accent-gray-500" />
-                防风
-              </label>
-            </div>
-
-            <div className="flex gap-2">
-              <button type="button" onClick={() => setShowAddForm(false)} className="flex-1 py-3 text-white/70 hover:text-white">取消</button>
-              <button type="submit" className="flex-1 py-3 bg-white/20 hover:bg-white/30 text-white rounded-xl font-medium">保存</button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      <div className="space-y-4">
-        {Object.entries(groupedItems).map(([cat, catItems]) =>
-          catItems.length > 0 && (
-            <div key={cat}>
-              <h3 className="text-white/60 text-sm font-medium mb-3 uppercase tracking-wider">{categoryLabels[cat]}</h3>
-              <div className="space-y-2">
-                {catItems.map(item => (
-                  <div key={item.id} className="glass-card p-3 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center text-2xl">
-                        {cat === 'top' ? '👕' : cat === 'bottom' ? '👖' : cat === 'socks' ? '🧦' : '👟'}
-                      </div>
-                      <div>
-                        <div className="text-white font-medium">{item.name}</div>
-                        <div className="text-white/50 text-sm">
-                          {'🔥'.repeat(Math.ceil(item.warmthLevel / 2))}
-                          {item.waterResistant && ' 💧'}
-                          {item.windResistant && ' 🌬️'}
-                        </div>
-                      </div>
-                    </div>
-                    <button onClick={() => onDeleteItem(item.id)} className="w-8 h-8 rounded-full bg-red-500/20 hover:bg-red-500/40 flex items-center justify-center text-red-300">
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )
-        )}
-      </div>
-    </div>
-  );
-}
-
-function HistoryView({ history, onBack }: { history: Outfit[]; onBack: () => void; }) {
-  return (
-    <div className="animate-fade-in">
-      <button onClick={onBack} className="text-white/70 hover:text-white mb-6 flex items-center gap-1">← 返回</button>
-      <h2 className="text-2xl font-semibold text-white mb-6">穿搭历史</h2>
-      
-      {history.length === 0 ? (
-        <div className="text-center py-12 text-white/50">
-          <div className="text-4xl mb-3">📝</div>
-          还没有穿搭记录
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {history.map((outfit) => (
-            <div key={outfit.id} className="glass-card p-4">
-              <div className="text-white/50 text-sm mb-2">
-                {new Date(outfit.createdAt).toLocaleDateString('zh-CN')}
-                <span className="mx-2">·</span>
-                {outfit.scene === 'commute' ? '通勤' : '跑步'}
-                <span className="mx-2">·</span>
-                {outfit.weatherSnapshot.temp}°C
-              </div>
-              <div className="flex items-center gap-2 flex-wrap text-white">
-                <span>{outfit.top?.name}</span>
-                <span className="text-white/30">+</span>
-                <span>{outfit.bottom?.name}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function SettingsView({ preferences, onBack, onSave }: {
-  preferences: UserPreferences | null;
-  onBack: () => void;
-  onSave: (prefs: UserPreferences) => void;
-}) {
-  const [formData, setFormData] = useState<Partial<UserPreferences>>({
-    location: preferences?.location || '北京',
-    commuteDistance: preferences?.commuteDistance || 5,
-    runDistance: preferences?.runDistance || 5,
-    coldSensitivity: preferences?.coldSensitivity || 3,
-    hotSensitivity: preferences?.hotSensitivity || 3,
-    sweatLevel: preferences?.sweatLevel || 'medium',
-    windSensitivity: preferences?.windSensitivity ?? true,
-    rainPreference: preferences?.rainPreference || 'avoid',
-  });
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const saved = await saveUserPreferences(formData as Omit<UserPreferences, 'id'>);
-      onSave(saved);
-    } catch (error) {
-      alert('保存失败');
-    }
-  };
-
-  return (
-    <div className="animate-fade-in">
-      <button onClick={onBack} className="text-white/70 hover:text-white mb-6 flex items-center gap-1">← 返回</button>
-      <h2 className="text-2xl font-semibold text-white mb-6">个性化设置</h2>
-      
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="glass-card p-5 space-y-5">
-          <div className="flex items-center gap-3 mb-4">
-            <MapPin className="text-blue-400" size={20} />
-            <h3 className="text-white font-semibold">基本设置</h3>
-          </div>
-          
-          <div>
-            <label className="text-white/70 text-sm">所在城市</label>
-            <input
-              type="text"
-              value={formData.location}
-              onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
-              className="w-full p-3 mt-2 bg-white/10 border border-white/20 rounded-xl text-white"
-              placeholder="如：北京"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-white/70 text-sm">通勤距离(km)</label>
-              <input type="number" value={formData.commuteDistance} onChange={(e) => setFormData(prev => ({ ...prev, commuteDistance: parseFloat(e.target.value) }))} className="w-full p-3 mt-2 bg-white/10 border border-white/20 rounded-xl text-white" />
-            </div>
-            <div>
-              <label className="text-white/70 text-sm">跑步距离(km)</label>
-              <input type="number" value={formData.runDistance} onChange={(e) => setFormData(prev => ({ ...prev, runDistance: parseFloat(e.target.value) }))} className="w-full p-3 mt-2 bg-white/10 border border-white/20 rounded-xl text-white" />
-            </div>
-          </div>
-        </div>
-
-        <div className="glass-card p-5 space-y-5">
-          <div className="flex items-center gap-3 mb-4">
-            <Settings className="text-purple-400" size={20} />
-            <h3 className="text-white font-semibold">体感偏好</h3>
-          </div>
-          
-          <div>
-            <label className="text-white/70 text-sm">怕冷程度: {formData.coldSensitivity}/5</label>
-            <input type="range" min="1" max="5" value={formData.coldSensitivity} onChange={(e) => setFormData(prev => ({ ...prev, coldSensitivity: parseInt(e.target.value) }))} className="w-full mt-2 accent-white" />
-          </div>
-
-          <div>
-            <label className="text-white/70 text-sm">怕热程度: {formData.hotSensitivity}/5</label>
-            <input type="range" min="1" max="5" value={formData.hotSensitivity} onChange={(e) => setFormData(prev => ({ ...prev, hotSensitivity: parseInt(e.target.value) }))} className="w-full mt-2 accent-white" />
-          </div>
-
-          <div>
-            <label className="text-white/70 text-sm">出汗程度</label>
-            <select value={formData.sweatLevel} onChange={(e) => setFormData(prev => ({ ...prev, sweatLevel: e.target.value as any }))} className="w-full p-3 mt-2 bg-white/10 border border-white/20 rounded-xl text-white">
-              <option value="low" className="bg-gray-800">少汗</option>
-              <option value="medium" className="bg-gray-800">中等</option>
-              <option value="high" className="bg-gray-800">多汗</option>
-            </select>
-          </div>
-
-          <label className="flex items-center justify-between text-white/80">
-            <span>对风敏感</span>
-            <input type="checkbox" checked={formData.windSensitivity} onChange={(e) => setFormData(prev => ({ ...prev, windSensitivity: e.target.checked }))} className="accent-white w-5 h-5" />
-          </label>
-        </div>
-
-        <button type="submit" className="w-full py-4 bg-white/20 hover:bg-white/30 text-white rounded-2xl font-medium transition-all">
-          保存设置
-        </button>
-      </form>
-    </div>
+    <button
+      onClick={onClick}
+      className={`flex-1 py-3 rounded-2xl text-sm font-medium transition-all duration-200 ${
+        active 
+          ? 'bg-white text-slate-900 shadow-lg' 
+          : 'bg-white/5 text-white/50 hover:bg-white/10'
+      }`}
+    >
+      {label}
+    </button>
   );
 }

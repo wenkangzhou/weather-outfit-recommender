@@ -3,82 +3,445 @@
 @tailwind utilities;
 
 :root {
-  --glass-bg: rgba(255, 255, 255, 0.1);
-  --glass-border: rgba(255, 255, 255, 0.2);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  /* iOS 动态颜色系统 */
+  --ios-bg-primary: #000000;
+  --ios-bg-secondary: #1c1c1e;
+  --ios-bg-tertiary: #2c2c2e;
+  --ios-label-primary: #ffffff;
+  --ios-label-secondary: rgba(255, 255, 255, 0.6);
+  --ios-label-tertiary: rgba(255, 255, 255, 0.3);
+  --ios-separator: rgba(255, 255, 255, 0.15);
+  --ios-tint: #0a84ff;
+  --ios-glass-bg: rgba(30, 30, 30, 0.65);
+  --ios-glass-border: rgba(255, 255, 255, 0.12);
+  
+  /* 天气主题色 */
+  --weather-sunny: linear-gradient(180deg, #4facfe 0%, #00f2fe 100%);
+  --weather-cloudy: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+  --weather-rainy: linear-gradient(180deg, #2c3e50 0%, #4ca1af 100%);
+  --weather-night: linear-gradient(180deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
 }
 
-* {
-  box-sizing: border-box;
-}
-
+/* ========== 基础样式 ========== */
 html {
   scroll-behavior: smooth;
 }
 
 body {
-  margin: 0;
-  padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+  background: var(--ios-bg-primary);
+  color: var(--ios-label-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom scrollbar - hidden for mobile feel */
-::-webkit-scrollbar {
-  width: 0px;
-  background: transparent;
-}
-
-/* Glass morphism utility */
-.glass {
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
-}
-
-.glass-card {
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-/* Weather gradient backgrounds */
+/* ========== 天气背景渐变 ========== */
 .bg-weather-sunny {
-  background: linear-gradient(180deg, #4A90E2 0%, #87CEEB 50%, #FFE4B5 100%);
+  background: linear-gradient(180deg, #4facfe 0%, #00f2fe 100%);
+  min-height: 100vh;
 }
 
 .bg-weather-cloudy {
-  background: linear-gradient(180deg, #5B6B7C 0%, #8B9CAD 50%, #A8B5C4 100%);
+  background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
 }
 
 .bg-weather-rainy {
-  background: linear-gradient(180deg, #2C3E50 0%, #4A5568 50%, #718096 100%);
+  background: linear-gradient(180deg, #2c3e50 0%, #4ca1af 100%);
+  min-height: 100vh;
 }
 
 .bg-weather-night {
-  background: linear-gradient(180deg, #0F2027 0%, #203A43 50%, #2C5364 100%);
+  background: linear-gradient(180deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+  min-height: 100vh;
 }
 
-/* Animation */
+/* ========== iOS 液态玻璃卡片 ========== */
+.glass-card {
+  background: rgba(30, 30, 30, 0.45);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* ========== 设置页面样式 ========== */
+.settings-section {
+  margin-bottom: 8px;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 4px 12px;
+  font-size: 15px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* 设置卡片 - 明确的边界和终点 */
+.settings-card {
+  background: rgba(30, 30, 30, 0.5);
+  backdrop-filter: blur(30px) saturate(150%);
+  -webkit-backdrop-filter: blur(30px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 16px 20px;
+  margin-bottom: 12px;
+  box-shadow: 
+    0 4px 20px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.settings-card-header {
+  font-size: 15px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 8px;
+}
+
+/* 选项行 */
+.settings-options-row {
+  display: flex;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 14px;
+  padding: 4px;
+}
+
+/* 设置输入框 */
+.settings-input {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 14px 16px;
+  color: white;
+  font-size: 17px;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.settings-input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.settings-input:focus {
+  background: rgba(0, 0, 0, 0.35);
+  border-color: rgba(10, 132, 255, 0.5);
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.15);
+}
+
+.settings-input-number {
+  width: 80px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: white;
+  font-size: 17px;
+  font-weight: 500;
+  text-align: center;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.settings-input-number:focus {
+  background: rgba(0, 0, 0, 0.35);
+  border-color: rgba(10, 132, 255, 0.5);
+}
+
+/* 滑块样式 */
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.15);
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: white;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: white;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  border: none;
+}
+
+/* ========== 主按钮 - 渐变液态效果 ========== */
+.primary-button {
+  background: linear-gradient(135deg, rgba(10, 132, 255, 0.9) 0%, rgba(48, 209, 88, 0.9) 100%);
+  backdrop-filter: blur(10px);
+  color: white;
+  font-weight: 600;
+  font-size: 17px;
+  padding: 16px 24px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 
+    0 4px 20px rgba(10, 132, 255, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.primary-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 
+    0 6px 24px rgba(10, 132, 255, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.primary-button:active {
+  transform: translateY(1px);
+  box-shadow: 
+    0 2px 12px rgba(10, 132, 255, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.primary-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ========== 玻璃按钮 ========== */
+.glass-button {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  padding: 10px 16px;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.glass-button:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* ========== 底部液态玻璃 Tab Bar ========== */
+.tab-bar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  background: rgba(40, 40, 40, 0.55);
+  backdrop-filter: blur(40px) saturate(200%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 28px;
+  box-shadow: 
+    0 12px 40px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  z-index: 100;
+  width: calc(100% - 40px);
+  max-width: 320px;
+}
+
+.tab-button {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 20px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tab-button-icon {
+  transition: all 0.25s ease;
+}
+
+.tab-button:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.tab-button.active {
+  background: rgba(255, 255, 255, 0.18);
+  color: white;
+  box-shadow: 
+    0 2px 12px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.tab-button.active .tab-button-icon {
+  transform: translateY(-2px);
+}
+
+/* ========== 温度显示 ========== */
+.temp-display {
+  font-weight: 300;
+  letter-spacing: -0.03em;
+  text-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+}
+
+/* ========== 动画 ========== */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes pulseSlow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
 .animate-fade-in {
-  animation: fadeIn 0.5s ease-out forwards;
+  animation: fadeIn 0.4s ease-out;
 }
 
-/* Text utilities */
-.text-shadow {
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+.animate-float {
+  animation: float 4s ease-in-out infinite;
 }
 
-/* Safe area for mobile */
-.pb-safe {
-  padding-bottom: env(safe-area-inset-bottom, 20px);
+.animate-pulse-slow {
+  animation: pulseSlow 3s ease-in-out infinite;
+}
+
+/* ========== 滚动条样式 ========== */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* ========== 深色模式覆盖 ========== */
+.dark .glass-card,
+.dark .settings-card {
+  background: rgba(30, 30, 30, 0.6);
+}
+
+/* 隐藏数字输入框的箭头 */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type=number] {
+  -moz-appearance: textfield;
+}
+
+/* ========== 响应式 ========== */
+@media (max-width: 480px) {
+  .tab-bar {
+    bottom: 16px;
+    border-radius: 24px;
+    padding: 6px;
+  }
+  
+  .tab-button {
+    padding: 8px 10px;
+    font-size: 10px;
+  }
+}
+
+/* ========== 穿搭卡片样式 ========== */
+.clothing-card {
+  background: rgba(30, 30, 30, 0.4);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.clothing-card:hover {
+  background: rgba(30, 30, 30, 0.5);
+  transform: translateY(-2px);
+}
+
+.clothing-card-image {
+  aspect-ratio: 1;
+  background: rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.clothing-card-info {
+  padding: 12px;
+}
+
+.clothing-card-label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.clothing-card-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: white;
+}
+
+.clothing-card-action {
+  margin-top: 8px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clothing-card-action:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: white;
 }

@@ -1,0 +1,117 @@
+{
+  "nav": {
+    "outfit": "Outfit",
+    "settings": "Settings"
+  },
+  "weather": {
+    "tempHigh": "H",
+    "tempLow": "L",
+    "humidity": "Humidity",
+    "windSpeed": "Wind",
+    "feelsLike": "Feels like"
+  },
+  "scene": {
+    "commute": "Commute",
+    "running": "Running"
+  },
+  "clothing": {
+    "top": "Top",
+    "bottom": "Bottom",
+    "socks": "Socks",
+    "shoes": "Shoes",
+    "waterproof": "Waterproof",
+    "windproof": "Windproof"
+  },
+  "outfit": {
+    "refresh": "Refresh",
+    "emptyWardrobe": "Wardrobe is empty",
+    "emptyWardrobeDesc": "Go to Settings to add your clothes first",
+    "select": "Select",
+    "todayOutfit": "Today's Outfit"
+  },
+  "settings": {
+    "title": "Settings",
+    "myWardrobe": "My Wardrobe",
+    "outfitHistory": "Outfit History",
+    "personalization": "Preferences",
+    "appearance": "Appearance",
+    "basic": "Basic",
+    "bodyPreference": "Comfort",
+    "items": "items",
+    "records": "records",
+    "theme": "Theme",
+    "system": "System",
+    "light": "Light",
+    "dark": "Dark",
+    "language": "Language",
+    "location": "Location",
+    "enterLocation": "Enter city name",
+    "commuteDistance": "Commute",
+    "runDistance": "Run",
+    "coldSensitive": "Cold Sensitivity",
+    "hotSensitive": "Heat Sensitivity",
+    "sweatLevel": "Sweating",
+    "sweat_low": "Low",
+    "sweat_medium": "Medium",
+    "sweat_high": "High",
+    "windSensitivity": "Wind Resistance",
+    "normal": "Normal",
+    "sensitive": "Sensitive",
+    "rainPreference": "Rain Preference",
+    "rain_avoid": "Avoid",
+    "rain_ok": "OK",
+    "rain_like": "Like",
+    "save": "Save"
+  },
+  "form": {
+    "location": "Location",
+    "commuteDistance": "Commute Distance",
+    "runDistance": "Run Distance",
+    "km": "km",
+    "coldSensitivity": "Cold Sensitivity",
+    "hotSensitivity": "Heat Sensitivity",
+    "sweatLevel": "Sweating",
+    "sweatLow": "Low",
+    "sweatMedium": "Medium",
+    "sweatHigh": "High",
+    "windSensitive": "Wind Sensitive",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "add": "Add",
+    "back": "Back"
+  },
+  "appearance": {
+    "theme": "Theme",
+    "themeSystem": "System",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "language": "Language",
+    "langZh": "中文",
+    "langEn": "English"
+  },
+  "types": {
+    "t-shirt": "T-Shirt",
+    "long-sleeve": "Long Sleeve",
+    "sweater": "Sweater",
+    "hoodie": "Hoodie",
+    "jacket": "Jacket",
+    "down-jacket": "Down Jacket",
+    "windbreaker": "Windbreaker",
+    "shorts": "Shorts",
+    "pants": "Pants",
+    "sweatpants": "Sweatpants",
+    "thermal-pants": "Thermal Pants",
+    "short-socks": "Short Socks",
+    "long-socks": "Long Socks",
+    "thick-socks": "Thick Socks",
+    "sneakers": "Sneakers",
+    "running-shoes": "Running Shoes",
+    "casual-shoes": "Casual Shoes",
+    "boots": "Boots"
+  },
+  "status": {
+    "locating": "Locating...",
+    "noHistory": "No outfit history yet"
+  }
+}
