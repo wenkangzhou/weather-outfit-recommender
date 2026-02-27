@@ -298,45 +298,6 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
           </Card>
         </div>
 
-        {/* Existing Items Preview */}
-        <section className="px-5 pt-6">
-          <div className="label-uppercase mb-4">已录入的衣物</div>
-          <div className="space-y-4">
-            {wardrobeStatus.hasTop && (
-              <WardrobeCategoryRow 
-                icon="👕" 
-                label="上衣" 
-                count={wardrobe.tops.length}
-                items={wardrobe.tops.slice(0, 3)}
-              />
-            )}
-            {wardrobeStatus.hasBottom && (
-              <WardrobeCategoryRow 
-                icon="👖" 
-                label="下装" 
-                count={wardrobe.bottoms.length}
-                items={wardrobe.bottoms.slice(0, 3)}
-              />
-            )}
-            {wardrobeStatus.hasSocks && (
-              <WardrobeCategoryRow 
-                icon="🧦" 
-                label="袜子" 
-                count={wardrobe.socks.length}
-                items={wardrobe.socks.slice(0, 3)}
-              />
-            )}
-            {wardrobeStatus.hasShoes && (
-              <WardrobeCategoryRow 
-                icon="👟" 
-                label="鞋子" 
-                count={wardrobe.shoes.length}
-                items={wardrobe.shoes.slice(0, 3)}
-              />
-            )}
-          </div>
-        </section>
-
         {/* Location Picker */}
         {showLocationPicker && (
           <CityPicker
@@ -385,11 +346,20 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
 
       {/* Main Outfit Display - Core Area */}
       <section className="pt-4 px-5">
-        {/* Temperature Display */}
+        {/* Temperature & Weather Info */}
         {weather && (
-          <div className="text-center mb-6">
-            <div className="data-large text-foreground">{weather.temp}°</div>
-            <div className="text-muted-foreground">{weather.description}</div>
+          <div className="flex items-center justify-between mb-6">
+            {/* Left: Temperature */}
+            <div>
+              <div className="data-large text-foreground">{weather.temp}°</div>
+              <div className="text-muted-foreground">{weather.description}</div>
+            </div>
+            
+            {/* Right: Weather Metrics */}
+            <div className="flex flex-col items-end gap-2">
+              <WeatherMetric icon={<Wind size={14} />} value={`${Math.round(weather.windSpeed)}m/s`} />
+              <WeatherMetric icon={<Droplets size={14} />} value={`${weather.humidity}%`} />
+            </div>
           </div>
         )}
 
@@ -445,38 +415,19 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
         </div>
       </section>
 
-      {/* Collapsible Weather Details */}
-      <section className="px-5 mt-6">
-        <button
-          onClick={() => setShowWeatherDetails(!showWeatherDetails)}
-          className="flex items-center justify-between w-full py-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <span>天气详情</span>
-          <ChevronDown size={16} className={`transition-transform ${showWeatherDetails ? 'rotate-180' : ''}`} />
-        </button>
-
-        {showWeatherDetails && weather && (
-          <div className="space-y-4 animate-fade-in">
-            {/* Weather Metrics */}
-            <div className="flex gap-3">
-              <WeatherBadge icon={<Wind size={14} />} value={`${Math.round(weather.windSpeed)}m/s`} label="风速" />
-              <WeatherBadge icon={<Droplets size={14} />} value={`${weather.humidity}%`} label="湿度" />
-            </div>
-
-            {/* Weather Tips */}
-            {weatherTips.length > 0 && (
-              <div className="space-y-2">
-                {weatherTips.map((tip, index) => (
-                  <div key={index} className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400">
-                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                    {tip}
-                  </div>
-                ))}
+      {/* Weather Tips */}
+      {weatherTips.length > 0 && (
+        <section className="px-5 mt-4">
+          <div className="space-y-2">
+            {weatherTips.map((tip, index) => (
+              <div key={index} className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400">
+                <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                {tip}
               </div>
-            )}
+            ))}
           </div>
-        )}
-      </section>
+        </section>
+      )}
 
       {/* Location Picker Modal */}
       {showLocationPicker && (
@@ -526,38 +477,11 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
 
 // ===== Helper Components =====
 
-function WardrobeCategoryRow({ icon, label, count, items }: {
-  icon: string;
-  label: string;
-  count: number;
-  items: ClothingItem[];
-}) {
+function WeatherMetric({ icon, value }: { icon: React.ReactNode; value: string }) {
   return (
-    <div className="flex items-center gap-4 p-4 bg-card border border-border rounded-xl">
-      <span className="text-2xl">{icon}</span>
-      <div className="flex-1">
-        <div className="flex items-center justify-between mb-1">
-          <span className="font-medium">{label}</span>
-          <span className="text-sm text-muted-foreground">{count} 件</span>
-        </div>
-        <div className="flex gap-1">
-          {items.map((item, idx) => (
-            <span key={idx} className="text-xs text-muted-foreground">{item.name}{idx < items.length - 1 ? '、' : ''}</span>
-          ))}
-          {count > 3 && <span className="text-xs text-muted-foreground">等</span>}
-        </div>
-      </div>
-      <ArrowRight size={16} className="text-muted-foreground" />
-    </div>
-  );
-}
-
-function WeatherBadge({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) {
-  return (
-    <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-full">
-      <span className="text-muted-foreground">{icon}</span>
-      <span className="text-sm font-medium tabular-nums">{value}</span>
-      <span className="text-xs text-muted-foreground">{label}</span>
+    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+      <span>{icon}</span>
+      <span className="font-medium tabular-nums">{value}</span>
     </div>
   );
 }
