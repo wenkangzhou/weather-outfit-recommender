@@ -54,6 +54,8 @@ interface ClothingItemRow {
   warmth_level: number;
   water_resistant: boolean;
   wind_resistant: boolean;
+  usage: 'commute' | 'running' | 'both';
+  has_pockets: boolean;
   color: string;
   image_url: string;
   created_at: string;
@@ -97,6 +99,8 @@ export async function getClothingItems(): Promise<ClothingItem[]> {
     warmthLevel: item.warmth_level,
     waterResistant: item.water_resistant,
     windResistant: item.wind_resistant,
+    usage: item.usage || 'both',
+    hasPockets: item.has_pockets || false,
     color: item.color,
     imageUrl: item.image_url,
     createdAt: item.created_at,
@@ -123,6 +127,8 @@ export async function addClothingItem(item: Omit<ClothingItem, 'id' | 'createdAt
       warmth_level: item.warmthLevel,
       water_resistant: item.waterResistant,
       wind_resistant: item.windResistant,
+      usage: item.usage,
+      has_pockets: item.hasPockets || false,
       color: item.color,
       image_url: item.imageUrl,
       created_at: new Date().toISOString(),
@@ -146,6 +152,8 @@ export async function addClothingItem(item: Omit<ClothingItem, 'id' | 'createdAt
     warmthLevel: record.warmth_level,
     waterResistant: record.water_resistant,
     windResistant: record.wind_resistant,
+    usage: record.usage || 'both',
+    hasPockets: record.has_pockets || false,
     color: record.color,
     imageUrl: record.image_url,
     createdAt: record.created_at,

@@ -11,11 +11,12 @@ import { Card } from '@/components/ui/card';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { I18nProvider } from '@/components/I18nProvider';
 
-const CATEGORIES: { type: ClothingCategory; label: string; icon: string }[] = [
-  { type: 'top', label: '上衣', icon: '👕' },
-  { type: 'bottom', label: '下装', icon: '👖' },
-  { type: 'socks', label: '袜子', icon: '🧦' },
-  { type: 'shoes', label: '鞋子', icon: '👟' },
+const CATEGORIES: { type: ClothingCategory; label: string; icon: string; showWaterWind: boolean }[] = [
+  { type: 'top', label: '上衣', icon: '👕', showWaterWind: true },
+  { type: 'bottom', label: '下装', icon: '👖', showWaterWind: true },
+  { type: 'socks', label: '袜子', icon: '🧦', showWaterWind: false },
+  { type: 'shoes', label: '鞋子', icon: '👟', showWaterWind: true },
+  { type: 'hat', label: '帽子', icon: '🧢', showWaterWind: true },
 ];
 
 const SUB_CATEGORIES: Record<ClothingCategory, { type: ClothingSubCategory; label: string }[]> = {
@@ -24,15 +25,18 @@ const SUB_CATEGORIES: Record<ClothingCategory, { type: ClothingSubCategory; labe
     { type: 'long-sleeve', label: '长袖' },
     { type: 'sweater', label: '毛衣' },
     { type: 'hoodie', label: '卫衣' },
-    { type: 'jacket', label: '夹克' },
+    { type: 'fleece', label: '抓绒' },
+    { type: 'cotton-padded', label: '棉服' },
     { type: 'down-jacket', label: '羽绒服' },
+    { type: 'jacket', label: '夹克' },
     { type: 'windbreaker', label: '冲锋衣' },
+    { type: 'wind-shirt', label: '皮肤衣' },
+    { type: 'shirt', label: '衬衫' },
   ],
   bottom: [
     { type: 'shorts', label: '短裤' },
+    { type: 'half-tights', label: '半弹' },
     { type: 'pants', label: '长裤' },
-    { type: 'sweatpants', label: '运动裤' },
-    { type: 'thermal-pants', label: '保暖裤' },
   ],
   socks: [
     { type: 'short-socks', label: '短袜' },
@@ -40,12 +44,23 @@ const SUB_CATEGORIES: Record<ClothingCategory, { type: ClothingSubCategory; labe
     { type: 'thick-socks', label: '厚袜' },
   ],
   shoes: [
-    { type: 'sneakers', label: '运动鞋' },
-    { type: 'running-shoes', label: '跑鞋' },
+    { type: 'hiking-shoes', label: '徒步鞋' },
+    { type: 'slippers', label: '拖鞋' },
     { type: 'casual-shoes', label: '休闲鞋' },
-    { type: 'boots', label: '靴子' },
+    { type: 'running-shoes', label: '跑鞋' },
+  ],
+  hat: [
+    { type: 'summer-hat', label: '夏帽' },
+    { type: 'beanie', label: '冷帽' },
+    { type: 'running-hat', label: '跑步帽' },
   ],
 };
+
+const USAGE_OPTIONS: { value: 'commute' | 'running' | 'both'; label: string }[] = [
+  { value: 'commute', label: '通勤' },
+  { value: 'running', label: '跑步' },
+  { value: 'both', label: '两者皆可' },
+];
 
 export default function WardrobePage() {
   return (
@@ -85,6 +100,7 @@ function WardrobeContent() {
     bottom: items.filter(i => i.category === 'bottom'),
     socks: items.filter(i => i.category === 'socks'),
     shoes: items.filter(i => i.category === 'shoes'),
+    hat: items.filter(i => i.category === 'hat'),
   };
 
   return (
@@ -138,15 +154,35 @@ function WardrobeContent() {
                           </div>
                           <div className="font-medium text-sm truncate">{item.name}</div>
                           <div className="text-xs text-muted-foreground">{t(`types.${item.subCategory}`)}</div>
-                          <div className="flex items-center gap-2 mt-2">
-                            {item.waterResistant && (
+                          <div className="flex items-center gap-1 mt-2 flex-wrap">
+                            {item.usage === 'running' && (
+                              <span className="text-[10px] px-1.5 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded">
+                                跑
+                              </span>
+                            )}
+                            {item.usage === 'commute' && (
+                              <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded">
+                                通
+                              </span>
+                            )}
+                            {item.usage === 'both' && (
+                              <span className="text-[10px] px-1.5 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded">
+                                皆可
+                              </span>
+                            )}
+                            {cat.showWaterWind && item.waterResistant && (
                               <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded">
                                 防水
                               </span>
                             )}
-                            {item.windResistant && (
+                            {cat.showWaterWind && item.windResistant && (
                               <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded">
                                 防风
+                              </span>
+                            )}
+                            {item.hasPockets && (
+                              <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded">
+                                口袋
                               </span>
                             )}
                           </div>
@@ -190,6 +226,7 @@ function AddItemModal({
   const [waterResistant, setWaterResistant] = useState(false);
   const [windResistant, setWindResistant] = useState(false);
   const [hasPockets, setHasPockets] = useState(false);
+  const [usage, setUsage] = useState<'commute' | 'running' | 'both'>('both');
 
   const handleCategorySelect = (cat: ClothingCategory) => {
     setSelectedCategory(cat);
@@ -205,12 +242,15 @@ function AddItemModal({
       category: selectedCategory,
       subCategory,
       warmthLevel,
-      waterResistant,
-      windResistant,
+      waterResistant: selectedCategory !== 'socks' ? waterResistant : false,
+      windResistant: selectedCategory !== 'socks' ? windResistant : false,
+      usage,
       hasPockets: selectedCategory === 'bottom' ? hasPockets : false,
       color: '#000000',
     });
   };
+
+  const showWaterWind = selectedCategory !== 'socks';
 
   return (
     <div className="fixed inset-0 bg-background/95 backdrop-blur-xl z-50 animate-fade-in">
@@ -280,6 +320,26 @@ function AddItemModal({
                 />
               </div>
 
+              {/* Usage */}
+              <div>
+                <label className="text-sm font-medium text-muted-foreground mb-2 block">用途</label>
+                <div className="flex gap-2">
+                  {USAGE_OPTIONS.map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setUsage(opt.value)}
+                      className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                        usage === opt.value
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Warmth Level */}
               <div>
                 <label className="text-sm font-medium text-muted-foreground mb-2 block">
@@ -308,16 +368,20 @@ function AddItemModal({
 
               {/* Toggles */}
               <div className="space-y-3">
-                <ToggleRow
-                  label="防水"
-                  checked={waterResistant}
-                  onChange={setWaterResistant}
-                />
-                <ToggleRow
-                  label="防风"
-                  checked={windResistant}
-                  onChange={setWindResistant}
-                />
+                {showWaterWind && (
+                  <>
+                    <ToggleRow
+                      label="防水"
+                      checked={waterResistant}
+                      onChange={setWaterResistant}
+                    />
+                    <ToggleRow
+                      label="防风"
+                      checked={windResistant}
+                      onChange={setWindResistant}
+                    />
+                  </>
+                )}
                 {selectedCategory === 'bottom' && (
                   <ToggleRow
                     label="有口袋（可放能量胶）"

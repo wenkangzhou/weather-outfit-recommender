@@ -1,10 +1,17 @@
 // Clothing types
-export type ClothingCategory = 'top' | 'bottom' | 'socks' | 'shoes';
+export type ClothingCategory = 'top' | 'bottom' | 'socks' | 'shoes' | 'hat';
 export type ClothingSubCategory = 
+  // 上衣
   | 't-shirt' | 'long-sleeve' | 'sweater' | 'hoodie' | 'jacket' | 'down-jacket' | 'windbreaker'
-  | 'shorts' | 'pants' | 'sweatpants' | 'thermal-pants'
+  | 'fleece' | 'cotton-padded' | 'wind-shirt' | 'shirt'
+  // 下装
+  | 'shorts' | 'half-tights' | 'pants'
+  // 袜子
   | 'short-socks' | 'long-socks' | 'thick-socks'
-  | 'sneakers' | 'running-shoes' | 'casual-shoes' | 'boots';
+  // 鞋子
+  | 'hiking-shoes' | 'slippers' | 'casual-shoes' | 'running-shoes'
+  // 帽子
+  | 'summer-hat' | 'beanie' | 'running-hat';
 
 export interface ClothingItem {
   id: string;
@@ -14,8 +21,9 @@ export interface ClothingItem {
   warmthLevel: number; // 1-10, 10 is warmest
   waterResistant: boolean;
   windResistant: boolean;
-  color: string;
+  usage: 'commute' | 'running' | 'both'; // 通勤、跑步、两者皆可
   hasPockets?: boolean; // 是否有口袋（用于长距离放能量胶）
+  color: string;
   imageUrl?: string;
   createdAt: string;
 }
@@ -44,6 +52,7 @@ export interface Outfit {
   bottom: ClothingItem;
   socks: ClothingItem;
   shoes: ClothingItem;
+  hat?: ClothingItem; // 帽子可选
   scene: OutfitScene;
   runType?: RunType; // 跑步类型
   weatherSnapshot: WeatherData;
@@ -79,5 +88,6 @@ export interface OutfitRecommendation {
     bottom?: ClothingItem[];
     socks?: ClothingItem[];
     shoes?: ClothingItem[];
+    hat?: ClothingItem[];
   };
 }

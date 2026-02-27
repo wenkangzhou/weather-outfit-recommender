@@ -115,7 +115,7 @@ function scoreItem(
   if (scene === 'commute') {
     // 通勤选舒适、通用的
     if (item.category === 'shoes' && 
-        (item.subCategory === 'casual-shoes' || item.subCategory === 'sneakers')) {
+        (item.subCategory === 'casual-shoes' || item.subCategory === 'slippers')) {
       score += 15;
     }
   }
