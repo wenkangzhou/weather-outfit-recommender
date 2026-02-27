@@ -139,7 +139,7 @@ export default function HistoryPage() {
             </div>
             <h3 className="text-lg font-medium mb-2">还没有穿搭记录</h3>
             <p className="text-sm text-muted-foreground max-w-xs mb-6">
-              在首页生成穿搭推荐后，点击"确认穿搭"即可保存记录
+              在首页生成穿搭推荐后，点击「确认穿搭」即可保存记录
             </p>
             <Button onClick={() => router.push('/')}>
               去生成穿搭
