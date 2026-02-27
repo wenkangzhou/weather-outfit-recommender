@@ -45,20 +45,6 @@ const first = <T>(data: T[] | null): T | null => {
   return data && data.length > 0 ? data[0] : null;
 };
 
-// Helper: map rain preference from DB to app type
-const mapRainPreference = (dbValue: string): 'avoid' | 'ok' | 'like' => {
-  if (dbValue === 'acceptable') return 'ok';
-  if (dbValue === 'brave') return 'like';
-  return dbValue as 'avoid' | 'ok' | 'like';
-};
-
-// Helper: map rain preference from app type to DB type
-const mapRainPreferenceToDb = (appValue: 'avoid' | 'ok' | 'like'): string => {
-  if (appValue === 'ok') return 'acceptable';
-  if (appValue === 'like') return 'brave';
-  return appValue;
-};
-
 // Database row types (use any for flexibility)
 interface ClothingItemRow {
   id: string;
@@ -76,13 +62,15 @@ interface ClothingItemRow {
 interface UserPreferencesRow {
   id: string;
   location: string;
-  commute_distance: number;
-  run_distance: number;
-  cold_sensitivity: number;
-  hot_sensitivity: number;
-  sweat_level: 'low' | 'medium' | 'high';
-  wind_sensitivity: boolean;
-  rain_preference: 'avoid' | 'acceptable' | 'brave';
+  default_run_type: 'easy' | 'long' | 'interval';
+  // Legacy fields (to be removed)
+  commute_distance?: number;
+  run_distance?: number;
+  cold_sensitivity?: number;
+  hot_sensitivity?: number;
+  sweat_level?: 'low' | 'medium' | 'high';
+  wind_sensitivity?: boolean;
+  rain_preference?: 'avoid' | 'acceptable' | 'brave';
 }
 
 // API functions
@@ -236,13 +224,7 @@ export async function getUserPreferences(): Promise<UserPreferences | null> {
   return {
     id: record.id,
     location: record.location,
-    commuteDistance: record.commute_distance,
-    runDistance: record.run_distance,
-    coldSensitivity: record.cold_sensitivity,
-    hotSensitivity: record.hot_sensitivity,
-    sweatLevel: record.sweat_level,
-    windSensitivity: record.wind_sensitivity,
-    rainPreference: mapRainPreference(record.rain_preference),
+    defaultRunType: record.default_run_type || 'easy',
   };
 }
 
@@ -262,13 +244,7 @@ export async function saveUserPreferences(prefs: Omit<UserPreferences, 'id'>): P
   
   const dbPrefs = {
     location: prefs.location,
-    commute_distance: prefs.commuteDistance,
-    run_distance: prefs.runDistance,
-    cold_sensitivity: prefs.coldSensitivity,
-    hot_sensitivity: prefs.hotSensitivity,
-    sweat_level: prefs.sweatLevel,
-    wind_sensitivity: prefs.windSensitivity,
-    rain_preference: mapRainPreferenceToDb(prefs.rainPreference),
+    default_run_type: prefs.defaultRunType,
   };
   
   if (existing) {

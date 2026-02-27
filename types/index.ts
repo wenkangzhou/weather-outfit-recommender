@@ -15,6 +15,7 @@ export interface ClothingItem {
   waterResistant: boolean;
   windResistant: boolean;
   color: string;
+  hasPockets?: boolean; // 是否有口袋（用于长距离放能量胶）
   imageUrl?: string;
   createdAt: string;
 }
@@ -28,12 +29,14 @@ export interface WeatherData {
   weatherCode: number; // OpenWeather code
   description: string;
   isRaining: boolean;
+  rainLevel?: 'light' | 'moderate' | 'heavy';
   uvIndex?: number;
   cityName?: string; // 城市名称
 }
 
 // Outfit types
 export type OutfitScene = 'commute' | 'running';
+export type RunType = 'easy' | 'long' | 'interval'; // 有氧、长距离、间歇
 
 export interface Outfit {
   id: string;
@@ -42,23 +45,18 @@ export interface Outfit {
   socks: ClothingItem;
   shoes: ClothingItem;
   scene: OutfitScene;
+  runType?: RunType; // 跑步类型
   weatherSnapshot: WeatherData;
   note?: string;
   createdAt: string;
   rating?: number; // 1-5, user feedback
 }
 
-// User preferences
+// User preferences - 大幅简化
 export interface UserPreferences {
   id: string;
-  location: string; // city name
-  commuteDistance: number; // km
-  runDistance: number; // km
-  coldSensitivity: number; // 1-5, higher means more sensitive to cold
-  hotSensitivity: number; // 1-5, higher means more sensitive to heat
-  sweatLevel: 'low' | 'medium' | 'high';
-  windSensitivity: boolean;
-  rainPreference: 'avoid' | 'ok' | 'like';
+  location: string; // city name for default
+  defaultRunType: RunType; // 默认跑步类型
 }
 
 // History entry
@@ -75,6 +73,7 @@ export interface OutfitHistory {
 export interface OutfitRecommendation {
   outfit: Omit<Outfit, 'id' | 'createdAt'>;
   reasoning: string;
+  weatherTips: string[]; // 天气提示：风大、湿度大、下雨等
   alternatives?: {
     top?: ClothingItem[];
     bottom?: ClothingItem[];

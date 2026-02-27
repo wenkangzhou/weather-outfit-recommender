@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { MapPin, Navigation, RefreshCw, ChevronUp } from 'lucide-react';
-import { ClothingItem, WeatherData, OutfitRecommendation, OutfitScene, UserPreferences } from '@/types';
+import { MapPin, Navigation, RefreshCw, ChevronDown, Wind, Droplets, CloudRain } from 'lucide-react';
+import { ClothingItem, WeatherData, OutfitRecommendation, OutfitScene, UserPreferences, RunType } from '@/types';
 import { getMockWeather } from '@/lib/weather';
 import { generateRecommendation } from '@/lib/recommendation';
 import { getClothingItems, getUserPreferences } from '@/lib/supabase';
@@ -16,9 +16,16 @@ interface OutfitTabProps {
   weather?: WeatherData | null;
 }
 
+const RUN_TYPES: { type: RunType; label: string; shortLabel: string; desc: string }[] = [
+  { type: 'easy', label: '有氧跑', shortLabel: '有氧', desc: '心率低、出汗少，可适当保暖' },
+  { type: 'long', label: '长距离', shortLabel: 'LSD', desc: '需携带补给，选有口袋的裤子' },
+  { type: 'interval', label: '间歇跑', shortLabel: '间歇', desc: '速度快产热多，跑后注意保暖' },
+];
+
 export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
   const { t } = useTranslation();
   const [scene, setScene] = useState<OutfitScene>('commute');
+  const [runType, setRunType] = useState<RunType>('easy');
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
   const [recommendation, setRecommendation] = useState<OutfitRecommendation | null>(null);
@@ -29,7 +36,7 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
     shoes: ClothingItem[];
   }>({ tops: [], bottoms: [], socks: [], shoes: [] });
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
-  const [showDetails, setShowDetails] = useState(false);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [showAlternatives, setShowAlternatives] = useState(false);
   const [replacingItem, setReplacingItem] = useState<'top' | 'bottom' | 'socks' | 'shoes' | null>(null);
 
@@ -44,6 +51,9 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
       setLoading(true);
       const prefs = await getUserPreferences();
       setPreferences(prefs);
+      if (prefs?.defaultRunType) {
+        setRunType(prefs.defaultRunType);
+      }
       
       const items = await getClothingItems();
       const wardrobeData = {
@@ -59,7 +69,8 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
           wardrobeData,
           weather,
           prefs || getDefaultPreferences(),
-          scene
+          scene,
+          runType
         );
         setRecommendation(rec);
       }
@@ -68,7 +79,7 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
     } finally {
       setLoading(false);
     }
-  }, [weather, scene]);
+  }, [weather, scene, runType]);
 
   useEffect(() => {
     loadData();
@@ -77,20 +88,14 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
   const getDefaultPreferences = (): UserPreferences => ({
     id: 'default',
     location: '上海',
-    commuteDistance: 5,
-    runDistance: 5,
-    coldSensitivity: 3,
-    hotSensitivity: 3,
-    sweatLevel: 'medium',
-    windSensitivity: true,
-    rainPreference: 'avoid',
+    defaultRunType: 'easy',
   });
 
   const generateNewRecommendation = useCallback(() => {
     if (!weather || wardrobe.tops.length === 0) return;
-    const rec = generateRecommendation(wardrobe, weather, preferences || getDefaultPreferences(), scene);
+    const rec = generateRecommendation(wardrobe, weather, preferences || getDefaultPreferences(), scene, runType);
     setRecommendation(rec);
-  }, [weather, wardrobe, preferences, scene]);
+  }, [weather, wardrobe, preferences, scene, runType]);
 
   const handleReplace = (category: 'top' | 'bottom' | 'socks' | 'shoes') => {
     setReplacingItem(category);
@@ -106,6 +111,34 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
     setShowAlternatives(false);
     setReplacingItem(null);
   };
+
+  // 生成天气提示
+  const getWeatherTips = (): string[] => {
+    if (!weather) return [];
+    const tips: string[] = [];
+    
+    if (weather.windSpeed > 8) {
+      tips.push('风较大，注意防风');
+    }
+    if (weather.humidity > 75) {
+      tips.push('湿度高，体感偏闷热');
+    } else if (weather.humidity < 30) {
+      tips.push('空气干燥，注意补水');
+    }
+    if (weather.isRaining) {
+      if (weather.rainLevel === 'light') {
+        tips.push('下小雨，路面可能湿滑');
+      } else if (weather.rainLevel === 'moderate') {
+        tips.push('下中雨，建议室内或延期');
+      } else if (weather.rainLevel === 'heavy') {
+        tips.push('下大雨，不建议户外跑步');
+      }
+    }
+    
+    return tips;
+  };
+
+  const weatherTips = getWeatherTips();
 
   if (loading) {
     return (
@@ -131,27 +164,48 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
 
   return (
     <div className="min-h-screen pb-28 animate-fade-in">
-      {/* Weather Section */}
-      <section className="pt-12 pb-6 px-5">
-        {/* Location */}
-        <div className="flex items-center gap-2 mb-6">
-          <MapPin size={16} className="text-muted-foreground" />
-          <span className="text-muted-foreground text-sm font-medium">
+      {/* Header - Location & Scene Toggle */}
+      <header className="pt-12 px-5 flex items-center justify-between">
+        {/* Location Picker */}
+        <button 
+          onClick={() => setShowLocationPicker(true)}
+          className="flex items-center gap-1.5 text-foreground/80 hover:text-foreground transition-colors"
+        >
+          <MapPin size={16} />
+          <span className="font-medium">
             {weather?.cityName || preferences?.location || t('status.locating')}
           </span>
-        </div>
+          <ChevronDown size={14} className="text-muted-foreground" />
+        </button>
 
+        {/* Scene Toggle */}
+        <div className="flex bg-muted rounded-full p-1">
+          <SceneButton 
+            active={scene === 'commute'} 
+            onClick={() => setScene('commute')}
+            label={t('scene.commute')}
+          />
+          <SceneButton 
+            active={scene === 'running'} 
+            onClick={() => setScene('running')}
+            label={t('scene.running')}
+          />
+        </div>
+      </header>
+
+      {/* Weather Section */}
+      <section className="pt-6 pb-6 px-5">
         {/* Temperature */}
         {weather && (
           <div className="mb-6">
             <div className="data-large text-foreground">
               {weather.temp}°
             </div>
-            <div className="flex items-center justify-between mt-2">
+            <div className="flex items-center justify-between mt-1">
               <div>
                 <div className="text-lg text-foreground/80">{weather.description}</div>
                 <div className="text-sm text-muted-foreground">
-                  {t('weather.tempHigh')} {weather.temp + 3}° · {t('weather.tempLow')} {weather.temp - 5}°
+                  体感 {weather.feelsLike}° · {t('weather.tempHigh')} {weather.temp + 3}°
                 </div>
               </div>
               <div className="text-5xl">
@@ -161,27 +215,55 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
           </div>
         )}
 
-        {/* Weather Details Toggle */}
-        <button 
-          onClick={() => setShowDetails(!showDetails)}
-          className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <span>{showDetails ? '收起' : '天气详情'}</span>
-          <ChevronUp size={14} className={`transition-transform ${showDetails ? '' : 'rotate-180'}`} />
-        </button>
+        {/* Weather Details */}
+        <div className="flex gap-3">
+          <WeatherBadge icon={<Wind size={14} />} value={`${Math.round(weather?.windSpeed || 0)}m/s`} label="风速" />
+          <WeatherBadge icon={<Droplets size={14} />} value={`${weather?.humidity || 0}%`} label="湿度" />
+        </div>
 
-        {showDetails && weather && (
-          <Card className="mt-4 p-4 grid grid-cols-3 gap-4 animate-fade-in border-border/50">
-            <WeatherDetail icon="💧" label={t('weather.humidity')} value={`${weather.humidity}%`} />
-            <WeatherDetail icon="💨" label={t('weather.windSpeed')} value={`${Math.round(weather.windSpeed)}m/s`} />
-            <WeatherDetail icon="🌡️" label={t('weather.feelsLike')} value={`${weather.feelsLike}°`} />
-          </Card>
+        {/* Weather Tips */}
+        {weatherTips.length > 0 && (
+          <div className="mt-4 space-y-2">
+            {weatherTips.map((tip, index) => (
+              <div key={index} className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400">
+                <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                {tip}
+              </div>
+            ))}
+          </div>
         )}
       </section>
 
+      {/* Run Type Selector - Only for Running Scene */}
+      {scene === 'running' && (
+        <section className="px-5 mb-6">
+          <div className="label-uppercase mb-3">课表类型</div>
+          <div className="flex gap-2">
+            {RUN_TYPES.map((run) => (
+              <button
+                key={run.type}
+                onClick={() => setRunType(run.type)}
+                className={`flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all ${
+                  runType === run.type
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {run.label}
+              </button>
+            ))}
+          </div>
+          
+          {/* Run Type Description */}
+          <div className="mt-3 text-sm text-muted-foreground">
+            {RUN_TYPES.find(r => r.type === runType)?.desc}
+          </div>
+        </section>
+      )}
+
       {/* 3D Scene Placeholder */}
       <section className="px-5 mb-6">
-        <Card className="h-56 flex flex-col items-center justify-center relative overflow-hidden border-border/50 bg-gradient-to-b from-muted/50 to-muted">
+        <Card className="h-52 flex flex-col items-center justify-center relative overflow-hidden border-border/50 bg-gradient-to-b from-muted/50 to-muted">
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="w-28 h-28 rounded-2xl bg-background/50 border border-border flex items-center justify-center text-5xl">
               👔
@@ -195,21 +277,6 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
               </p>
             </div>
           )}
-          
-          {/* Scene Toggle */}
-          <div className="absolute top-4 right-4 flex gap-2">
-            <SceneBadge 
-              active={scene === 'commute'} 
-              onClick={() => setScene('commute')}
-              icon={<Navigation size={14} />}
-              label={t('scene.commute')}
-            />
-            <SceneBadge 
-              active={scene === 'running'} 
-              onClick={() => setScene('running')}
-              label={t('scene.running')}
-            />
-          </div>
         </Card>
       </section>
 
@@ -236,9 +303,43 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
         </Button>
       </section>
 
+      {/* Location Picker Modal */}
+      {showLocationPicker && (
+        <div className="fixed inset-0 bg-background/95 backdrop-blur-xl z-50 flex items-center justify-center p-5 animate-fade-in">
+          <Card className="w-full max-w-sm p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold">选择城市</h3>
+              <Button variant="ghost" size="icon" onClick={() => setShowLocationPicker(false)}>
+                <XIcon />
+              </Button>
+            </div>
+            <input
+              type="text"
+              placeholder="搜索城市..."
+              className="input-field mb-4"
+              defaultValue={weather?.cityName || preferences?.location}
+            />
+            <div className="space-y-2">
+              {['北京', '上海', '广州', '深圳', '成都', '杭州'].map(city => (
+                <button
+                  key={city}
+                  onClick={() => {
+                    // TODO: update location
+                    setShowLocationPicker(false);
+                  }}
+                  className="w-full p-3 text-left rounded-xl hover:bg-muted transition-colors"
+                >
+                  {city}
+                </button>
+              ))}
+            </div>
+          </Card>
+        </div>
+      )}
+
       {/* Alternatives Modal */}
       {showAlternatives && replacingItem && (
-        <div className="fixed inset-0 bg-background/90 backdrop-blur-xl z-50 flex items-end justify-center p-4 animate-fade-in">
+        <div className="fixed inset-0 bg-background/95 backdrop-blur-xl z-50 flex items-end justify-center p-4 animate-fade-in">
           <Card className="w-full max-w-md max-h-[60vh] overflow-hidden">
             <div className="p-4 border-b border-border flex items-center justify-between">
               <h3 className="font-medium">{t('outfit.select')} {t(`clothing.${replacingItem}`)}</h3>
@@ -270,33 +371,31 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
   );
 }
 
-function WeatherDetail({ icon, label, value }: { icon: string; label: string; value: string }) {
+function WeatherBadge({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) {
   return (
-    <div className="text-center">
-      <div className="text-xl mb-1">{icon}</div>
-      <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-0.5">{label}</div>
-      <div className="text-sm font-medium tabular-nums">{value}</div>
+    <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-full">
+      <span className="text-muted-foreground">{icon}</span>
+      <span className="text-sm font-medium tabular-nums">{value}</span>
+      <span className="text-xs text-muted-foreground">{label}</span>
     </div>
   );
 }
 
-function SceneBadge({ active, onClick, icon, label }: {
+function SceneButton({ active, onClick, label }: {
   active: boolean;
   onClick: () => void;
-  icon?: React.ReactNode;
   label: string;
 }) {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+      className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
         active 
-          ? 'bg-primary text-primary-foreground' 
-          : 'bg-background/80 text-muted-foreground hover:text-foreground'
+          ? 'bg-background text-foreground shadow-sm' 
+          : 'text-muted-foreground hover:text-foreground'
       }`}
     >
-      {icon}
-      <span>{label}</span>
+      {label}
     </button>
   );
 }

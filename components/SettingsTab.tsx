@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Sun, Moon, Monitor, Thermometer, MapPin, Shirt, History, ChevronRight, Plus, X } from 'lucide-react';
+import { Sun, Moon, Monitor, Shirt, History, ChevronRight, Plus, X, Zap, Route, Timer } from 'lucide-react';
 import { useAppStore } from '@/store/appStore';
-import { UserPreferences, ClothingItem } from '@/types';
+import { UserPreferences, ClothingItem, RunType } from '@/types';
 import { getUserPreferences, saveUserPreferences, getClothingItems } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -12,59 +12,45 @@ import { Separator } from '@/components/ui/separator';
 
 type SettingsView = 'main' | 'wardrobe' | 'history';
 
+const RUN_TYPES: { type: RunType; icon: React.ReactNode; label: string; desc: string }[] = [
+  { type: 'easy', icon: <Zap size={18} />, label: '有氧跑', desc: '心率低、出汗少，可适当保暖' },
+  { type: 'long', icon: <Route size={18} />, label: '长距离', desc: '需口袋存放能量胶、水等补给' },
+  { type: 'interval', icon: <Timer size={18} />, label: '间歇跑', desc: '速度快、出汗多，体育场可备外套' },
+];
+
 export default function SettingsTab() {
   const { t, i18n } = useTranslation();
   const { theme, setTheme, language, setLanguage } = useAppStore();
   
   const [currentView, setCurrentView] = useState<SettingsView>('main');
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
-  const [location, setLocation] = useState('');
-  const [commuteDistance, setCommuteDistance] = useState(5);
-  const [runDistance, setRunDistance] = useState(5);
-  const [coldSensitivity, setColdSensitivity] = useState(3);
-  const [hotSensitivity, setHotSensitivity] = useState(3);
-  const [sweatLevel, setSweatLevel] = useState<'low' | 'medium' | 'high'>('medium');
-  const [windSensitivity, setWindSensitivity] = useState(false);
-  const [rainPreference, setRainPreference] = useState<'avoid' | 'ok' | 'like'>('avoid');
+  const [defaultRunType, setDefaultRunType] = useState<RunType>('easy');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     getUserPreferences().then(prefs => {
       if (prefs) {
         setPreferences(prefs);
-        setLocation(prefs.location || '');
-        setCommuteDistance(prefs.commuteDistance || 5);
-        setRunDistance(prefs.runDistance || 5);
-        setColdSensitivity(prefs.coldSensitivity || 3);
-        setHotSensitivity(prefs.hotSensitivity || 3);
-        setSweatLevel(prefs.sweatLevel || 'medium');
-        setWindSensitivity(prefs.windSensitivity || false);
-        setRainPreference(prefs.rainPreference || 'avoid');
+        setDefaultRunType(prefs.defaultRunType || 'easy');
       }
     });
   }, []);
 
-  const handleSave = useCallback(async () => {
+  const handleSave = async () => {
     setSaving(true);
     try {
       const newPrefs: UserPreferences = {
         ...preferences,
         id: preferences?.id || 'default',
-        location,
-        commuteDistance,
-        runDistance,
-        coldSensitivity,
-        hotSensitivity,
-        sweatLevel,
-        windSensitivity,
-        rainPreference,
+        location: preferences?.location || '上海',
+        defaultRunType,
       };
       await saveUserPreferences(newPrefs);
       setPreferences(newPrefs);
     } finally {
       setSaving(false);
     }
-  }, [preferences, location, commuteDistance, runDistance, coldSensitivity, hotSensitivity, sweatLevel, windSensitivity, rainPreference]);
+  };
 
   const handleLanguageChange = (lang: 'zh' | 'en') => {
     setLanguage(lang);
@@ -108,10 +94,32 @@ export default function SettingsTab() {
           </div>
         </section>
 
+        {/* Running Type */}
+        <section>
+          <div className="settings-section-title">
+            <Timer size={16} className="text-blue-500" />
+            跑步课表
+          </div>
+          
+          <div className="space-y-3">
+            {RUN_TYPES.map((run) => (
+              <RunTypeCard
+                key={run.type}
+                type={run.type}
+                icon={run.icon}
+                label={run.label}
+                desc={run.desc}
+                active={defaultRunType === run.type}
+                onClick={() => setDefaultRunType(run.type)}
+              />
+            ))}
+          </div>
+        </section>
+
         {/* Appearance */}
         <section>
           <div className="settings-section-title">
-            <Sun size={16} className="text-amber-400" />
+            <Sun size={16} className="text-amber-500" />
             {t('settings.appearance')}
           </div>
           
@@ -156,146 +164,6 @@ export default function SettingsTab() {
           </Card>
         </section>
 
-        {/* Basic Settings */}
-        <section>
-          <div className="settings-section-title">
-            <MapPin size={16} className="text-emerald-400" />
-            {t('settings.basic')}
-          </div>
-
-          <Card className="settings-card">
-            <div className="settings-card-header">{t('settings.location')}</div>
-            <input
-              type="text"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              placeholder={t('settings.enterLocation')}
-              className="input-field"
-            />
-          </Card>
-
-          <Card className="settings-card">
-            <div className="grid grid-cols-2 gap-6">
-              <div>
-                <div className="settings-card-header">{t('settings.commuteDistance')}</div>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="number"
-                    value={commuteDistance}
-                    onChange={(e) => setCommuteDistance(Number(e.target.value))}
-                    className="input-number"
-                  />
-                  <span className="text-sm text-muted-foreground">km</span>
-                </div>
-              </div>
-              <div>
-                <div className="settings-card-header">{t('settings.runDistance')}</div>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="number"
-                    value={runDistance}
-                    onChange={(e) => setRunDistance(Number(e.target.value))}
-                    className="input-number"
-                  />
-                  <span className="text-sm text-muted-foreground">km</span>
-                </div>
-              </div>
-            </div>
-          </Card>
-        </section>
-
-        {/* Body Preferences */}
-        <section>
-          <div className="settings-section-title">
-            <Thermometer size={16} className="text-rose-400" />
-            {t('settings.bodyPreference')}
-          </div>
-
-          <Card className="settings-card">
-            <div className="flex items-center justify-between mb-4">
-              <span className="settings-card-header mb-0">{t('settings.coldSensitive')}</span>
-              <span className="text-sm tabular-nums text-muted-foreground">{coldSensitivity}/5</span>
-            </div>
-            <div className="rating-bar">
-              {[1, 2, 3, 4, 5].map((v) => (
-                <button
-                  key={v}
-                  onClick={() => setColdSensitivity(v)}
-                  className={`rating-button ${coldSensitivity >= v ? 'active' : ''}`}
-                >
-                  {v}
-                </button>
-              ))}
-            </div>
-          </Card>
-
-          <Card className="settings-card">
-            <div className="flex items-center justify-between mb-4">
-              <span className="settings-card-header mb-0">{t('settings.hotSensitive')}</span>
-              <span className="text-sm tabular-nums text-muted-foreground">{hotSensitivity}/5</span>
-            </div>
-            <div className="rating-bar">
-              {[1, 2, 3, 4, 5].map((v) => (
-                <button
-                  key={v}
-                  onClick={() => setHotSensitivity(v)}
-                  className={`rating-button ${hotSensitivity >= v ? 'active' : ''}`}
-                >
-                  {v}
-                </button>
-              ))}
-            </div>
-          </Card>
-
-          <Card className="settings-card">
-            <div className="settings-card-header">{t('settings.sweatLevel')}</div>
-            <div className="options-row">
-              {(['low', 'medium', 'high'] as const).map((level) => (
-                <button
-                  key={level}
-                  onClick={() => setSweatLevel(level)}
-                  className={`option-button ${sweatLevel === level ? 'active' : ''}`}
-                >
-                  {t(`settings.sweat_${level}`)}
-                </button>
-              ))}
-            </div>
-          </Card>
-
-          <Card className="settings-card">
-            <div className="settings-card-header">{t('settings.windSensitivity')}</div>
-            <div className="options-row">
-              <button
-                onClick={() => setWindSensitivity(false)}
-                className={`option-button ${!windSensitivity ? 'active' : ''}`}
-              >
-                {t('settings.normal')}
-              </button>
-              <button
-                onClick={() => setWindSensitivity(true)}
-                className={`option-button ${windSensitivity ? 'active' : ''}`}
-              >
-                {t('settings.sensitive')}
-              </button>
-            </div>
-          </Card>
-
-          <Card className="settings-card">
-            <div className="settings-card-header">{t('settings.rainPreference')}</div>
-            <div className="options-row">
-              {(['avoid', 'ok', 'like'] as const).map((pref) => (
-                <button
-                  key={pref}
-                  onClick={() => setRainPreference(pref)}
-                  className={`option-button ${rainPreference === pref ? 'active' : ''}`}
-                >
-                  {t(`settings.rain_${pref}`)}
-                </button>
-              ))}
-            </div>
-          </Card>
-        </section>
-
         {/* Save Button */}
         <Button
           onClick={handleSave}
@@ -316,6 +184,43 @@ export default function SettingsTab() {
 }
 
 // ========== Components ==========
+
+function RunTypeCard({ type, icon, label, desc, active, onClick }: {
+  type: RunType;
+  icon: React.ReactNode;
+  label: string;
+  desc: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full text-left p-4 rounded-2xl border transition-all duration-200 ${
+        active 
+          ? 'bg-primary/5 border-primary' 
+          : 'bg-card border-border hover:border-border/80'
+      }`}
+    >
+      <div className="flex items-start gap-4">
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+          active ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+        }`}>
+          {icon}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className={`font-medium mb-1 ${active ? 'text-primary' : ''}`}>{label}</div>
+          <div className="text-sm text-muted-foreground leading-relaxed">{desc}</div>
+        </div>
+        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${
+          active ? 'border-primary bg-primary' : 'border-muted-foreground/30'
+        }`}>
+          {active && <div className="w-2 h-2 rounded-full bg-primary-foreground" />}
+        </div>
+      </div>
+    </button>
+  );
+}
 
 function QuickAccessCard({ icon, title, count, unit, color, onClick }: {
   icon: React.ReactNode;
