@@ -11,6 +11,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import ClothingCard from './ClothingCard';
+import CityPicker from './CityPicker';
 
 interface OutfitTabProps {
   weather?: WeatherData | null;
@@ -305,36 +306,15 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
 
       {/* Location Picker Modal */}
       {showLocationPicker && (
-        <div className="fixed inset-0 bg-background/95 backdrop-blur-xl z-50 flex items-center justify-center p-5 animate-fade-in">
-          <Card className="w-full max-w-sm p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold">选择城市</h3>
-              <Button variant="ghost" size="icon" onClick={() => setShowLocationPicker(false)}>
-                <XIcon />
-              </Button>
-            </div>
-            <input
-              type="text"
-              placeholder="搜索城市..."
-              className="input-field mb-4"
-              defaultValue={weather?.cityName || preferences?.location}
-            />
-            <div className="space-y-2">
-              {['北京', '上海', '广州', '深圳', '成都', '杭州'].map(city => (
-                <button
-                  key={city}
-                  onClick={() => {
-                    // TODO: update location
-                    setShowLocationPicker(false);
-                  }}
-                  className="w-full p-3 text-left rounded-xl hover:bg-muted transition-colors"
-                >
-                  {city}
-                </button>
-              ))}
-            </div>
-          </Card>
-        </div>
+        <CityPicker
+          currentCity={weather?.cityName || preferences?.location || '上海'}
+          onSelect={(city) => {
+            // Update weather with new city
+            const newWeather = { ...weather!, cityName: city };
+            setWeather(newWeather);
+          }}
+          onClose={() => setShowLocationPicker(false)}
+        />
       )}
 
       {/* Alternatives Modal */}
