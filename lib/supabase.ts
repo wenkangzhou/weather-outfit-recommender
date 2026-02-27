@@ -160,6 +160,60 @@ export async function addClothingItem(item: Omit<ClothingItem, 'id' | 'createdAt
   };
 }
 
+export async function updateClothingItem(
+  id: string, 
+  updates: Partial<Omit<ClothingItem, 'id' | 'createdAt'>>
+): Promise<ClothingItem> {
+  if (!isConfigured || !supabase) {
+    const items = getDemoItems();
+    const index = items.findIndex(item => item.id === id);
+    if (index === -1) throw new Error('Item not found');
+    
+    const updatedItem = { ...items[index], ...updates };
+    items[index] = updatedItem;
+    setDemoItems(items);
+    return updatedItem;
+  }
+  
+  const dbUpdates: any = {};
+  if (updates.name !== undefined) dbUpdates.name = updates.name;
+  if (updates.category !== undefined) dbUpdates.category = updates.category;
+  if (updates.subCategory !== undefined) dbUpdates.sub_category = updates.subCategory;
+  if (updates.warmthLevel !== undefined) dbUpdates.warmth_level = updates.warmthLevel;
+  if (updates.waterResistant !== undefined) dbUpdates.water_resistant = updates.waterResistant;
+  if (updates.windResistant !== undefined) dbUpdates.wind_resistant = updates.windResistant;
+  if (updates.usage !== undefined) dbUpdates.usage = updates.usage;
+  if (updates.hasPockets !== undefined) dbUpdates.has_pockets = updates.hasPockets;
+  if (updates.color !== undefined) dbUpdates.color = updates.color;
+  
+  const { data, error } = await supabase
+    .from('clothing_items')
+    .update(dbUpdates)
+    .eq('id', id)
+    .select()
+    .limit(1);
+  
+  if (error) throw error;
+  
+  const record = first(data as ClothingItemRow[]);
+  if (!record) throw new Error('Update failed');
+  
+  return {
+    id: record.id,
+    name: record.name,
+    category: record.category as ClothingCategory,
+    subCategory: record.sub_category as ClothingSubCategory,
+    warmthLevel: record.warmth_level,
+    waterResistant: record.water_resistant,
+    windResistant: record.wind_resistant,
+    usage: record.usage || 'both',
+    hasPockets: record.has_pockets || false,
+    color: record.color,
+    imageUrl: record.image_url,
+    createdAt: record.created_at,
+  };
+}
+
 export async function deleteClothingItem(id: string): Promise<void> {
   if (!isConfigured || !supabase) {
     setDemoItems(getDemoItems().filter(item => item.id !== id));

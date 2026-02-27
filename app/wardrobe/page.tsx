@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import { X, Plus, ChevronLeft } from 'lucide-react';
+import { X, Plus, ChevronLeft, Pencil, Trash2, MoreVertical } from 'lucide-react';
 import { ClothingItem, ClothingCategory, ClothingSubCategory } from '@/types';
-import { getClothingItems, addClothingItem } from '@/lib/supabase';
+import { getClothingItems, addClothingItem, updateClothingItem, deleteClothingItem } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ThemeProvider } from '@/components/ThemeProvider';
@@ -78,6 +78,8 @@ function WardrobeContent() {
   const [items, setItems] = useState<ClothingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingItem, setEditingItem] = useState<ClothingItem | null>(null);
+  const [deletingItem, setDeletingItem] = useState<ClothingItem | null>(null);
 
   useEffect(() => {
     loadItems();
@@ -93,6 +95,18 @@ function WardrobeContent() {
     await addClothingItem(item);
     await loadItems();
     setShowAddModal(false);
+  };
+
+  const handleUpdateItem = async (id: string, updates: Partial<Omit<ClothingItem, 'id' | 'createdAt'>>) => {
+    await updateClothingItem(id, updates);
+    await loadItems();
+    setEditingItem(null);
+  };
+
+  const handleDeleteItem = async (id: string) => {
+    await deleteClothingItem(id);
+    await loadItems();
+    setDeletingItem(null);
   };
 
   const groupedItems = {
@@ -116,7 +130,10 @@ function WardrobeContent() {
           <Button 
             size="icon" 
             className="rounded-full bg-primary"
-            onClick={() => setShowAddModal(true)}
+            onClick={() => {
+              setEditingItem(null);
+              setShowAddModal(true);
+            }}
           >
             <Plus size={20} />
           </Button>
@@ -148,11 +165,40 @@ function WardrobeContent() {
                   {groupedItems[cat.type].length > 0 ? (
                     <div className="grid grid-cols-2 gap-3">
                       {groupedItems[cat.type].map(item => (
-                        <Card key={item.id} className="p-3 border-border/50">
+                        <Card key={item.id} className="p-3 border-border/50 relative group">
+                          {/* Actions Menu */}
+                          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                            <div className="flex gap-1">
+                              <Button
+                                variant="secondary"
+                                size="icon"
+                                className="w-7 h-7 rounded-full"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingItem(item);
+                                  setShowAddModal(true);
+                                }}
+                              >
+                                <Pencil size={12} />
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="icon"
+                                className="w-7 h-7 rounded-full"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeletingItem(item);
+                                }}
+                              >
+                                <Trash2 size={12} />
+                              </Button>
+                            </div>
+                          </div>
+
                           <div className="aspect-square rounded-xl bg-muted flex items-center justify-center text-3xl mb-3">
                             {cat.icon}
                           </div>
-                          <div className="font-medium text-sm truncate">{item.name}</div>
+                          <div className="font-medium text-sm truncate pr-6">{item.name}</div>
                           <div className="text-xs text-muted-foreground">{t(`types.${item.subCategory}`)}</div>
                           <div className="flex items-center gap-1 mt-2 flex-wrap">
                             {item.usage === 'running' && (
@@ -199,34 +245,54 @@ function WardrobeContent() {
         </div>
       </div>
 
-      {/* Add Item Modal */}
+      {/* Add/Edit Item Modal */}
       {showAddModal && (
-        <AddItemModal 
-          onClose={() => setShowAddModal(false)}
+        <AddEditItemModal 
+          item={editingItem}
+          onClose={() => {
+            setShowAddModal(false);
+            setEditingItem(null);
+          }}
           onAdd={handleAddItem}
+          onUpdate={handleUpdateItem}
+        />
+      )}
+
+      {/* Delete Confirm Modal */}
+      {deletingItem && (
+        <DeleteConfirmModal
+          item={deletingItem}
+          onClose={() => setDeletingItem(null)}
+          onConfirm={() => handleDeleteItem(deletingItem.id)}
         />
       )}
     </main>
   );
 }
 
-function AddItemModal({ 
+function AddEditItemModal({ 
+  item,
   onClose, 
-  onAdd 
+  onAdd,
+  onUpdate,
 }: { 
+  item: ClothingItem | null;
   onClose: () => void;
   onAdd: (item: Omit<ClothingItem, 'id' | 'createdAt'>) => void;
+  onUpdate: (id: string, updates: Partial<Omit<ClothingItem, 'id' | 'createdAt'>>) => void;
 }) {
   const { t } = useTranslation();
-  const [step, setStep] = useState<'category' | 'details'>('category');
-  const [selectedCategory, setSelectedCategory] = useState<ClothingCategory | null>(null);
-  const [name, setName] = useState('');
-  const [subCategory, setSubCategory] = useState<ClothingSubCategory | null>(null);
-  const [warmthLevel, setWarmthLevel] = useState(5);
-  const [waterResistant, setWaterResistant] = useState(false);
-  const [windResistant, setWindResistant] = useState(false);
-  const [hasPockets, setHasPockets] = useState(false);
-  const [usage, setUsage] = useState<'commute' | 'running' | 'both'>('both');
+  const isEditing = !!item;
+  
+  const [step, setStep] = useState<'category' | 'details'>(isEditing ? 'details' : 'category');
+  const [selectedCategory, setSelectedCategory] = useState<ClothingCategory | null>(item?.category || null);
+  const [name, setName] = useState(item?.name || '');
+  const [subCategory, setSubCategory] = useState<ClothingSubCategory | null>(item?.subCategory || null);
+  const [warmthLevel, setWarmthLevel] = useState(item?.warmthLevel || 5);
+  const [waterResistant, setWaterResistant] = useState(item?.waterResistant || false);
+  const [windResistant, setWindResistant] = useState(item?.windResistant || false);
+  const [hasPockets, setHasPockets] = useState(item?.hasPockets || false);
+  const [usage, setUsage] = useState<'commute' | 'running' | 'both'>(item?.usage || 'both');
 
   const handleCategorySelect = (cat: ClothingCategory) => {
     setSelectedCategory(cat);
@@ -237,7 +303,7 @@ function AddItemModal({
   const handleSubmit = () => {
     if (!selectedCategory || !subCategory || !name.trim()) return;
     
-    onAdd({
+    const data = {
       name: name.trim(),
       category: selectedCategory,
       subCategory,
@@ -247,7 +313,13 @@ function AddItemModal({
       usage,
       hasPockets: selectedCategory === 'bottom' ? hasPockets : false,
       color: '#000000',
-    });
+    };
+
+    if (isEditing && item) {
+      onUpdate(item.id, data);
+    } else {
+      onAdd(data);
+    }
   };
 
   const showWaterWind = selectedCategory !== 'socks';
@@ -257,7 +329,7 @@ function AddItemModal({
       <div className="max-w-md mx-auto h-full flex flex-col">
         {/* Modal Header */}
         <header className="pt-12 pb-4 px-5 flex items-center gap-4 shrink-0">
-          {step === 'details' ? (
+          {step === 'details' && !isEditing ? (
             <Button variant="ghost" size="icon" onClick={() => setStep('category')} className="rounded-full">
               <ChevronLeft size={20} />
             </Button>
@@ -267,13 +339,13 @@ function AddItemModal({
             </Button>
           )}
           <h1 className="text-lg font-semibold">
-            {step === 'category' ? '选择分类' : '填写信息'}
+            {isEditing ? '编辑衣物' : (step === 'category' ? '选择分类' : '填写信息')}
           </h1>
         </header>
 
         {/* Modal Content */}
         <div className="flex-1 overflow-y-auto px-5 py-4">
-          {step === 'category' ? (
+          {step === 'category' && !isEditing ? (
             <div className="grid grid-cols-2 gap-3">
               {CATEGORIES.map(cat => (
                 <button
@@ -288,6 +360,21 @@ function AddItemModal({
             </div>
           ) : (
             <div className="space-y-5">
+              {/* Category Display (when editing) */}
+              {isEditing && selectedCategory && (
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground mb-2 block">分类</label>
+                  <div className="flex items-center gap-3 p-4 bg-muted rounded-xl">
+                    <span className="text-2xl">
+                      {CATEGORIES.find(c => c.type === selectedCategory)?.icon}
+                    </span>
+                    <span className="font-medium">
+                      {CATEGORIES.find(c => c.type === selectedCategory)?.label}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {/* Sub Category */}
               <div>
                 <label className="text-sm font-medium text-muted-foreground mb-2 block">类型</label>
@@ -395,18 +482,52 @@ function AddItemModal({
         </div>
 
         {/* Modal Footer */}
-        {step === 'details' && (
+        {(step === 'details' || isEditing) && (
           <div className="p-5 border-t border-border shrink-0">
             <Button 
               className="w-full h-12 text-base"
               disabled={!subCategory || !name.trim()}
               onClick={handleSubmit}
             >
-              添加
+              {isEditing ? '保存' : '添加'}
             </Button>
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function DeleteConfirmModal({ 
+  item, 
+  onClose, 
+  onConfirm 
+}: { 
+  item: ClothingItem;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-5 animate-fade-in">
+      <Card className="w-full max-w-sm p-6">
+        <div className="text-center">
+          <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-destructive/10 flex items-center justify-center">
+            <Trash2 size={24} className="text-destructive" />
+          </div>
+          <h3 className="text-lg font-semibold mb-2">确认删除?</h3>
+          <p className="text-sm text-muted-foreground mb-6">
+            确定要删除 &ldquo;{item.name}&rdquo; 吗? 此操作无法撤销。
+          </p>
+          <div className="flex gap-3">
+            <Button variant="outline" className="flex-1" onClick={onClose}>
+              取消
+            </Button>
+            <Button variant="destructive" className="flex-1" onClick={onConfirm}>
+              删除
+            </Button>
+          </div>
+        </div>
+      </Card>
     </div>
   );
 }
