@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { X, Plus, ChevronLeft, Pencil, Trash2, ChevronDown } from 'lucide-react';
@@ -65,11 +65,29 @@ const USAGE_OPTIONS: { value: 'commute' | 'running' | 'both'; label: string }[] 
 
 const INITIAL_SHOW_COUNT = 4;
 
+// Loading fallback for Suspense
+function WardrobeLoading() {
+  return (
+    <main className="min-h-screen bg-background">
+      <div className="max-w-md mx-auto pt-12 pb-4 px-5">
+        <div className="h-8 w-32 bg-muted rounded animate-pulse mb-8" />
+        <div className="space-y-4">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-20 bg-muted rounded-xl animate-pulse" />
+          ))}
+        </div>
+      </div>
+    </main>
+  );
+}
+
 export default function WardrobePage() {
   return (
     <ThemeProvider>
       <I18nProvider>
-        <WardrobeContent />
+        <Suspense fallback={<WardrobeLoading />}>
+          <WardrobeContent />
+        </Suspense>
       </I18nProvider>
     </ThemeProvider>
   );

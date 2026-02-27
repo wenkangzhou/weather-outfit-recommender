@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { Shirt, Settings } from 'lucide-react';
@@ -126,11 +126,24 @@ function NavItem({ active, onClick, icon, label }: {
   );
 }
 
+// Loading fallback for Suspense
+function AppLoading() {
+  return (
+    <main className="min-h-screen bg-weather-sunny">
+      <div className="h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+      </div>
+    </main>
+  );
+}
+
 export default function Home() {
   return (
     <ThemeProvider>
       <I18nProvider>
-        <AppContent />
+        <Suspense fallback={<AppLoading />}>
+          <AppContent />
+        </Suspense>
       </I18nProvider>
     </ThemeProvider>
   );
