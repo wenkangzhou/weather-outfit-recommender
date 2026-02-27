@@ -352,13 +352,19 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
             {/* Left: Temperature */}
             <div>
               <div className="data-large text-foreground">{weather.temp}°</div>
-              <div className="text-muted-foreground">{weather.description}</div>
+              <div className="text-muted-foreground">{weather.description} · 体感 {weather.feelsLike}°</div>
             </div>
             
             {/* Right: Weather Metrics */}
             <div className="flex flex-col items-end gap-2">
-              <WeatherMetric icon={<Wind size={14} />} value={`${Math.round(weather.windSpeed)}m/s`} />
-              <WeatherMetric icon={<Droplets size={14} />} value={`${weather.humidity}%`} />
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Wind size={14} />
+                <span className="font-medium tabular-nums">{Math.round(weather.windSpeed)}m/s</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Droplets size={14} />
+                <span className="font-medium tabular-nums">{weather.humidity}%</span>
+              </div>
             </div>
           </div>
         )}
@@ -476,15 +482,6 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
 }
 
 // ===== Helper Components =====
-
-function WeatherMetric({ icon, value }: { icon: React.ReactNode; value: string }) {
-  return (
-    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-      <span>{icon}</span>
-      <span className="font-medium tabular-nums">{value}</span>
-    </div>
-  );
-}
 
 function SceneButton({ active, onClick, label }: {
   active: boolean;
