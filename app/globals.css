@@ -5,8 +5,76 @@
 @layer base {
   :root {
     /* ========================================
-       FeelToday Design System - Tokens
-       冷静 · 数据感 · 工具属性 · 克制
+       FeelToday Design System - Light Mode
+       纯净 · 清爽 · 专业
+       ======================================== */
+    
+    /* Background Scale */
+    --bg-primary: 0 0% 100%;         /* #FFFFFF */
+    --bg-secondary: 0 0% 96%;        /* #F5F5F5 */
+    --bg-tertiary: 0 0% 94%;         /* #F0F0F0 */
+    --bg-elevated: 0 0% 100%;        /* #FFFFFF */
+    --bg-overlay: 0 0% 0% / 0.4;     /* 40% black overlay */
+    
+    /* Surface Scale */
+    --surface-default: 0 0% 100%;
+    --surface-hover: 0 0% 98%;
+    --surface-active: 0 0% 96%;
+    --surface-ghost: 0 0% 0% / 0.03;
+    
+    /* Border Scale */
+    --border-subtle: 0 0% 0% / 0.04;
+    --border-default: 0 0% 0% / 0.08;
+    --border-strong: 0 0% 0% / 0.12;
+    
+    /* Text Scale */
+    --text-primary: 0 0% 7%;         /* #111111 */
+    --text-secondary: 0 0% 0% / 0.5;
+    --text-tertiary: 0 0% 0% / 0.35;
+    --text-muted: 0 0% 0% / 0.25;
+    
+    /* Accent Colors - Light Mode (desaturated) */
+    --accent-blue: 217 100% 50%;     /* #0066FF */
+    --accent-cyan: 190 90% 38%;      /* #0891B2 */
+    --accent-green: 160 80% 32%;     /* #059669 */
+    --accent-amber: 35 90% 43%;      /* #D97706 */
+    --accent-rose: 0 80% 50%;        /* #DC2626 */
+    --accent-purple: 262 60% 55%;    /* #7C3AED */
+    
+    /* Data Visualization - Light Mode */
+    --data-cold: 217 91% 60%;
+    --data-cool: 160 84% 39%;
+    --data-perfect: 263 70% 66%;
+    --data-warm: 35 92% 50%;
+    --data-hot: 0 84% 60%;
+    
+    /* shadcn/ui variables - Light Mode */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 7%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 7%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 7%;
+    --primary: 217 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 7%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+    --accent: 0 0% 96%;
+    --accent-foreground: 0 0% 7%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 0% / 0.08;
+    --input: 0 0% 0% / 0.08;
+    --ring: 217 100% 50%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    /* ========================================
+       FeelToday Design System - Dark Mode
+       沉浸 · 专注 · 现代
        ======================================== */
     
     /* Background Scale */
@@ -16,7 +84,7 @@
     --bg-elevated: 0 0% 10%;         /* #1A1A1A */
     --bg-overlay: 0 0% 0% / 0.8;     /* 80% black */
     
-    /* Surface Scale - for cards, inputs */
+    /* Surface Scale */
     --surface-default: 0 0% 7%;
     --surface-hover: 0 0% 10%;
     --surface-active: 0 0% 14%;
@@ -26,15 +94,14 @@
     --border-subtle: 0 0% 100% / 0.06;
     --border-default: 0 0% 100% / 0.1;
     --border-strong: 0 0% 100% / 0.15;
-    --border-focus: 217 91% 60%;     /* Blue-500 */
     
     /* Text Scale */
     --text-primary: 0 0% 100%;
-    --text-secondary: 0 0% 100% / 0.6;
-    --text-tertiary: 0 0% 100% / 0.4;
+    --text-secondary: 0 0% 100% / 0.55;
+    --text-tertiary: 0 0% 100% / 0.35;
     --text-muted: 0 0% 100% / 0.25;
     
-    /* Accent Colors */
+    /* Accent Colors - Dark Mode (brighter) */
     --accent-blue: 217 91% 60%;      /* #3B82F6 */
     --accent-cyan: 189 94% 43%;      /* #22D3EE */
     --accent-green: 160 84% 39%;     /* #10B981 */
@@ -42,34 +109,33 @@
     --accent-rose: 350 89% 60%;      /* #F43F5E */
     --accent-purple: 258 90% 66%;    /* #A78BFA */
     
-    /* Data Visualization */
+    /* Data Visualization - Dark Mode */
     --data-cold: 213 94% 68%;
     --data-cool: 160 84% 39%;
     --data-perfect: 258 90% 66%;
     --data-warm: 27 96% 61%;
     --data-hot: 0 84% 60%;
     
-    /* shadcn/ui variables */
-    --background: var(--bg-primary);
-    --foreground: var(--text-primary);
-    --card: var(--bg-tertiary);
-    --card-foreground: var(--text-primary);
-    --popover: var(--bg-tertiary);
-    --popover-foreground: var(--text-primary);
-    --primary: var(--accent-blue);
+    /* shadcn/ui variables - Dark Mode */
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 100%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
-    --secondary: var(--bg-elevated);
-    --secondary-foreground: var(--text-primary);
-    --muted: var(--bg-secondary);
-    --muted-foreground: var(--text-secondary);
-    --accent: var(--bg-elevated);
-    --accent-foreground: var(--text-primary);
-    --destructive: var(--accent-rose);
+    --secondary: 0 0% 10%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 10%;
+    --muted-foreground: 0 0% 63%;
+    --accent: 0 0% 14%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: var(--border-default);
-    --input: var(--border-default);
-    --ring: var(--accent-blue);
-    --radius: 0.75rem;
+    --border: 0 0% 100% / 0.1;
+    --input: 0 0% 100% / 0.1;
+    --ring: 217 91% 60%;
   }
 }
 
@@ -100,34 +166,67 @@
 
 /* ========================================
    Weather Background Themes
-   极其微妙的渐变，不抢夺内容焦点
    ======================================== */
 
+/* Light Mode Weather Backgrounds */
+:root .bg-weather-sunny,
 .bg-weather-sunny {
   background: 
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(59, 130, 246, 0.15), transparent),
-    linear-gradient(180deg, hsl(var(--bg-primary)) 0%, hsl(var(--bg-secondary)) 100%);
+    radial-gradient(ellipse 120% 80% at 50% -10%, rgba(59, 130, 246, 0.12), transparent),
+    linear-gradient(180deg, #FAFBFC 0%, #F0F4F8 50%, #E8EEF4 100%);
   min-height: 100vh;
 }
 
+:root .bg-weather-cloudy,
 .bg-weather-cloudy {
   background: 
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(139, 92, 246, 0.12), transparent),
-    linear-gradient(180deg, hsl(var(--bg-primary)) 0%, hsl(var(--bg-secondary)) 100%);
+    radial-gradient(ellipse 120% 80% at 50% -10%, rgba(107, 114, 128, 0.1), transparent),
+    linear-gradient(180deg, #F5F6F8 0%, #EAECEF 50%, #E0E4E8 100%);
   min-height: 100vh;
 }
 
+:root .bg-weather-rainy,
 .bg-weather-rainy {
   background: 
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(34, 211, 238, 0.08), transparent),
-    linear-gradient(180deg, hsl(var(--bg-primary)) 0%, hsl(var(--bg-secondary)) 100%);
+    radial-gradient(ellipse 120% 80% at 50% -10%, rgba(75, 85, 99, 0.12), transparent),
+    linear-gradient(180deg, #EEF0F4 0%, #E2E6EC 50%, #D8DEE6 100%);
   min-height: 100vh;
 }
 
+:root .bg-weather-night,
 .bg-weather-night {
   background: 
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.12), transparent),
-    linear-gradient(180deg, hsl(var(--bg-primary)) 0%, hsl(240 20% 4%) 100%);
+    radial-gradient(ellipse 120% 80% at 50% -10%, rgba(79, 70, 229, 0.1), transparent),
+    linear-gradient(180deg, #E8EAEF 0%, #DDE0E8 50%, #D1D6E0 100%);
+  min-height: 100vh;
+}
+
+/* Dark Mode Weather Backgrounds */
+.dark .bg-weather-sunny {
+  background: 
+    radial-gradient(ellipse 120% 80% at 50% -10%, rgba(59, 130, 246, 0.15), transparent),
+    linear-gradient(180deg, #000000 0%, #0A0F1A 50%, #101520 100%);
+  min-height: 100vh;
+}
+
+.dark .bg-weather-cloudy {
+  background: 
+    radial-gradient(ellipse 120% 80% at 50% -10%, rgba(139, 92, 246, 0.12), transparent),
+    linear-gradient(180deg, #000000 0%, #0D0A14 50%, #121020 100%);
+  min-height: 100vh;
+}
+
+.dark .bg-weather-rainy {
+  background: 
+    radial-gradient(ellipse 120% 80% at 50% -10%, rgba(34, 211, 238, 0.08), transparent),
+    linear-gradient(180deg, #000000 0%, #0A1214 50%, #0E1A1C 100%);
+  min-height: 100vh;
+}
+
+.dark .bg-weather-night {
+  background: 
+    radial-gradient(ellipse 120% 80% at 50% -10%, rgba(99, 102, 241, 0.12), transparent),
+    linear-gradient(180deg, #000000 0%, #080818 50%, #0C1020 100%);
   min-height: 100vh;
 }
 
@@ -153,50 +252,15 @@
   background: hsl(var(--bg-elevated));
   border: 1px solid hsl(var(--border-subtle));
   border-radius: 12px;
+}
+
+/* Light mode elevated shadow */
+:root .surface-elevated {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.dark .surface-elevated {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-/* ========================================
-   Interactive States
-   ======================================== */
-
-.interactive-hover {
-  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.interactive-hover:hover {
-  background: hsl(var(--surface-hover));
-}
-
-.interactive-hover:active {
-  transform: scale(0.98);
-}
-
-/* ========================================
-   Data Display
-   ======================================== */
-
-.data-large {
-  font-size: 72px;
-  font-weight: 300;
-  line-height: 1;
-  letter-spacing: -0.03em;
-  font-variant-numeric: tabular-nums;
-}
-
-.data-medium {
-  font-size: 32px;
-  font-weight: 300;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-
-.label-uppercase {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: hsl(var(--text-tertiary));
 }
 
 /* ========================================
@@ -211,17 +275,26 @@
   display: flex;
   gap: 8px;
   padding: 8px;
-  background: hsl(var(--bg-tertiary) / 0.9);
+  background: hsl(var(--bg-tertiary) / 0.95);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid hsl(var(--border-default));
   border-radius: 24px;
-  box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
   z-index: 100;
   width: calc(100% - 40px);
   max-width: 280px;
+}
+
+:root .bottom-nav {
+  box-shadow: 
+    0 4px 20px rgba(0, 0, 0, 0.08),
+    0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.dark .bottom-nav {
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .nav-item {
@@ -251,32 +324,40 @@
   color: hsl(var(--text-primary));
 }
 
+:root .nav-item.active {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.dark .nav-item.active {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
 /* ========================================
    Settings Page Components
    ======================================== */
-
-.settings-section {
-  margin-bottom: 8px;
-}
 
 .settings-section-title {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 20px 4px 12px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
-  color: hsl(var(--text-secondary));
   text-transform: uppercase;
   letter-spacing: 0.08em;
+  color: hsl(var(--text-tertiary));
 }
 
 .settings-card {
-  background: hsl(var(--bg-tertiary));
+  background: hsl(var(--bg-elevated));
   border: 1px solid hsl(var(--border-default));
   border-radius: 16px;
   padding: 20px;
   margin-bottom: 12px;
+}
+
+:root .settings-card {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
 .settings-card-header {
@@ -319,6 +400,13 @@
 .option-button.active {
   background: hsl(var(--bg-elevated));
   color: hsl(var(--text-primary));
+}
+
+:root .option-button.active {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.dark .option-button.active {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
@@ -332,7 +420,7 @@
   flex: 1;
   height: 40px;
   border-radius: 10px;
-  border: none;
+  border: 1px solid hsl(var(--border-default));
   background: hsl(var(--bg-secondary));
   color: hsl(var(--text-tertiary));
   font-size: 14px;
@@ -342,13 +430,21 @@
 }
 
 .rating-button:hover {
-  background: hsl(var(--bg-elevated));
+  background: hsl(var(--bg-tertiary));
   color: hsl(var(--text-secondary));
 }
 
 .rating-button.active {
   background: hsl(var(--accent-blue));
+  border-color: hsl(var(--accent-blue));
   color: white;
+}
+
+:root .rating-button.active {
+  box-shadow: 0 2px 8px rgba(0, 102, 255, 0.2);
+}
+
+.dark .rating-button.active {
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
@@ -360,7 +456,7 @@
 }
 
 .quick-access-card {
-  background: hsl(var(--bg-tertiary));
+  background: hsl(var(--bg-elevated));
   border: 1px solid hsl(var(--border-default));
   border-radius: 16px;
   padding: 16px;
@@ -373,10 +469,22 @@
   transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+:root .quick-access-card {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
 .quick-access-card:hover {
-  background: hsl(var(--bg-elevated));
+  background: hsl(var(--bg-tertiary));
   border-color: hsl(var(--border-strong));
   transform: translateY(-2px);
+}
+
+:root .quick-access-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.dark .quick-access-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .quick-access-card:active {
@@ -415,7 +523,7 @@
 
 .input-field:focus {
   border-color: hsl(var(--accent-blue));
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  box-shadow: 0 0 0 3px hsl(var(--accent-blue) / 0.15);
 }
 
 .input-number {
@@ -434,6 +542,33 @@
 
 .input-number:focus {
   border-color: hsl(var(--accent-blue));
+}
+
+/* ========================================
+   Data Display
+   ======================================== */
+
+.data-large {
+  font-size: 72px;
+  font-weight: 300;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.data-medium {
+  font-size: 32px;
+  font-weight: 300;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.label-uppercase {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: hsl(var(--text-tertiary));
 }
 
 /* ========================================
