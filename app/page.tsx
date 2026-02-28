@@ -28,12 +28,26 @@ function AppContent() {
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [bgClass, setBgClass] = useState('bg-weather-sunny');
   const [mounted, setMounted] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     // 初始化临时用户 ID（如果没有则创建）
     getOrCreateTempUserId();
     getUserPreferences().then(setPreferences).catch(() => setPreferences(null));
+  }, []);
+
+  // 监听登录状态变化，显示刷新 loading
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'user_id' || e.key === 'temp_user_id') {
+        // 用户登录/切换，显示 loading
+        setIsRefreshing(true);
+        setTimeout(() => setIsRefreshing(false), 1500);
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
   
   // 切换 tab 时更新 URL（可选，保持 URL 同步）
@@ -86,6 +100,15 @@ function AppContent() {
 
   return (
     <main className={`min-h-screen ${bgClass} transition-all duration-1000`}>
+      {/* 全局刷新 Loading */}
+      {isRefreshing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-sm">
+          <div className="bg-card px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3">
+            <div className="w-5 h-5 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+            <span className="text-sm font-medium">数据刷新中...</span>
+          </div>
+        </div>
+      )}
       <div className="relative min-h-screen max-w-md mx-auto">
         {/* 使用 CSS 控制显示，避免组件卸载重新加载 */}
         <div className={activeTab === 'outfit' ? 'block' : 'hidden'}>

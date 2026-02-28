@@ -104,6 +104,19 @@ export default function SettingsTab() {
     );
   }
 
+  // 数据加载中状态
+  if (isLoadingCounts && wardrobeCount === 0 && historyCount === 0) {
+    return (
+      <div className="min-h-screen pb-28">
+        <div className="safe-area-header" />
+        <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
+          <div className="w-10 h-10 border-3 border-primary/20 border-t-primary rounded-full animate-spin" />
+          <p className="text-sm text-muted-foreground">加载数据中...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen pb-28 animate-fade-in">
       {/* Header - 刘海屏安全区域 */}
