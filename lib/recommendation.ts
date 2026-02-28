@@ -548,7 +548,8 @@ export function generateRecommendation(
   weather: WeatherData,
   preferences: UserPreferences,
   scene: OutfitScene,
-  runType?: RunType
+  runType?: RunType,
+  excludeItems?: { topId?: string; bottomId?: string; socksId?: string; shoesId?: string }
 ): OutfitRecommendation & { layeredTops?: ClothingItem[] } {
   // 计算需要的保暖值
   const effectiveTemp = calculateEffectiveTemp(weather, scene, runType);
@@ -585,23 +586,43 @@ export function generateRecommendation(
   const finalShoes = filteredShoes.length > 0 ? filteredShoes : wardrobe.shoes;
   const finalHats = filteredHats && filteredHats.length > 0 ? filteredHats : wardrobe.hats;
   
+  // 排除已推荐的物品
+  const topsForRecommendation = excludeItems?.topId 
+    ? finalTops.filter(t => t.id !== excludeItems.topId)
+    : finalTops;
+  const bottomsForRecommendation = excludeItems?.bottomId
+    ? finalBottoms.filter(b => b.id !== excludeItems.bottomId)
+    : finalBottoms;
+  const socksForRecommendation = excludeItems?.socksId
+    ? finalSocks.filter(s => s.id !== excludeItems.socksId)
+    : finalSocks;
+  const shoesForRecommendation = excludeItems?.shoesId
+    ? finalShoes.filter(s => s.id !== excludeItems.shoesId)
+    : finalShoes;
+  
+  // 如果排除后为空，回退到原列表
+  const topsToRecommend = topsForRecommendation.length > 0 ? topsForRecommendation : finalTops;
+  const bottomsToRecommend = bottomsForRecommendation.length > 0 ? bottomsForRecommendation : finalBottoms;
+  const socksToRecommend = socksForRecommendation.length > 0 ? socksForRecommendation : finalSocks;
+  const shoesToRecommend = shoesForRecommendation.length > 0 ? shoesForRecommendation : finalShoes;
+  
   // 使用多层算法选择上衣
-  const layeredTopOptions = generateTopLayers(finalTops, topTargetWarmth, weather, scene, runType);
+  const layeredTopOptions = generateTopLayers(topsToRecommend, topTargetWarmth, weather, scene, runType);
   const bestTopCombination = layeredTopOptions[0];
   
   // 如果有多层，选择最外层作为主显示
   const mainTop = bestTopCombination.layers[bestTopCombination.layers.length - 1];
   
   // 其他部位评分排序
-  const scoredBottoms = finalBottoms
+  const scoredBottoms = bottomsToRecommend
     .map(item => ({ item, score: scoreItem(item, bottomTargetWarmth, weather, scene, runType) }))
     .sort((a, b) => b.score - a.score);
   
-  const scoredSocks = finalSocks
+  const scoredSocks = socksToRecommend
     .map(item => ({ item, score: scoreItem(item, socksTargetWarmth, weather, scene, runType) }))
     .sort((a, b) => b.score - a.score);
   
-  const scoredShoes = finalShoes
+  const scoredShoes = shoesToRecommend
     .map(item => ({ item, score: scoreItem(item, 0, weather, scene, runType) }))
     .sort((a, b) => b.score - a.score);
   

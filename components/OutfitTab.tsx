@@ -144,10 +144,26 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
       toast({ title: '请先添加衣物', description: '需要至少一件上衣、下装、袜子和鞋子' });
       return;
     }
-    const rec = generateRecommendation(wardrobe, weather, preferences || getDefaultPreferences(), scene, runType);
+    
+    // 排除当前推荐的物品，实现"换一批"
+    const excludeItems = recommendation ? {
+      topId: recommendation.outfit.top?.id,
+      bottomId: recommendation.outfit.bottom?.id,
+      socksId: recommendation.outfit.socks?.id,
+      shoesId: recommendation.outfit.shoes?.id,
+    } : undefined;
+    
+    const rec = generateRecommendation(
+      wardrobe, 
+      weather, 
+      preferences || getDefaultPreferences(), 
+      scene, 
+      runType,
+      excludeItems
+    );
     setRecommendation(rec);
     toast({ title: '已生成新推荐' });
-  }, [weather, wardrobe, preferences, scene, runType]);
+  }, [weather, wardrobe, preferences, scene, runType, recommendation]);
 
   const handleReplace = (category: 'top' | 'bottom' | 'socks' | 'shoes' | 'hat') => {
     setReplacingItem(category);
