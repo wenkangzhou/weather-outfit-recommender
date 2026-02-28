@@ -66,6 +66,7 @@ export interface OutfitHistoryItem {
   id: string;
   items: {
     top: ClothingItem;
+    layeredTops?: ClothingItem[]; // 多层上衣（内层+外层）
     bottom: ClothingItem;
     socks: ClothingItem;
     shoes: ClothingItem;
@@ -122,4 +123,5 @@ export interface OutfitRecommendation {
     shoes?: ClothingItem[];
     hat?: ClothingItem[];
   };
+  layeredTops?: ClothingItem[]; // 多层上衣（如打底+外套）
 }

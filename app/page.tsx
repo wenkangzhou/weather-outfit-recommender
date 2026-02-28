@@ -10,6 +10,7 @@ import OutfitTab from '@/components/OutfitTab';
 import SettingsTab from '@/components/SettingsTab';
 import { getCurrentWeather, getMockWeather } from '@/lib/weather';
 import { getUserPreferences } from '@/lib/supabase';
+import { getOrCreateTempUserId } from '@/lib/user';
 import { useActualTheme } from '@/store/appStore';
 import { WeatherData, UserPreferences } from '@/types';
 
@@ -30,6 +31,8 @@ function AppContent() {
 
   useEffect(() => {
     setMounted(true);
+    // 初始化临时用户 ID（如果没有则创建）
+    getOrCreateTempUserId();
     getUserPreferences().then(setPreferences).catch(() => setPreferences(null));
   }, []);
   
@@ -84,7 +87,13 @@ function AppContent() {
   return (
     <main className={`min-h-screen ${bgClass} transition-all duration-1000`}>
       <div className="relative min-h-screen max-w-md mx-auto">
-        {activeTab === 'outfit' ? <OutfitTab weather={weather} /> : <SettingsTab />}
+        {/* 使用 CSS 控制显示，避免组件卸载重新加载 */}
+        <div className={activeTab === 'outfit' ? 'block' : 'hidden'}>
+          <OutfitTab weather={weather} />
+        </div>
+        <div className={activeTab === 'settings' ? 'block' : 'hidden'}>
+          <SettingsTab />
+        </div>
 
         {/* Spacer for bottom nav */}
         <div className="h-20" />

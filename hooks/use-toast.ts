@@ -13,11 +13,7 @@ export function useToast() {
 
   const showToast = useCallback((options: ToastOptions) => {
     setToast(options);
-    
-    // Auto dismiss after 3 seconds
-    setTimeout(() => {
-      setToast(null);
-    }, 3000);
+    setTimeout(() => setToast(null), 2000);
   }, []);
 
   return {
@@ -26,60 +22,70 @@ export function useToast() {
   };
 }
 
-// Simple toast component that can be used anywhere
 export function toast(options: ToastOptions) {
   if (typeof window === 'undefined') return;
   
-  // Remove any existing toast
-  const existingToast = document.getElementById('toast-notification');
-  if (existingToast) {
-    existingToast.remove();
-  }
+  // Remove existing
+  const existing = document.getElementById('toast-notification');
+  if (existing) existing.remove();
   
-  // Create toast element
-  const toastEl = document.createElement('div');
-  toastEl.id = 'toast-notification';
-  toastEl.className = `fixed top-20 left-1/2 -translate-x-1/2 z-[100] px-4 py-3 rounded-xl shadow-xl text-sm font-medium transition-all duration-300 ${
-    options.variant === 'destructive' 
-      ? 'bg-destructive text-destructive-foreground' 
-      : 'bg-foreground text-background'
-  }`;
-  toastEl.style.animation = 'toast-in 0.3s ease-out';
-  toastEl.innerHTML = `
-    <div class="flex items-center gap-2">
-      ${options.variant === 'destructive' 
-        ? '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 4V8M8 12H8.01M15 8C15 11.866 11.866 15 8 15C4.13401 15 1 11.866 1 8C1 4.13401 4.13401 1 8 1C11.866 1 15 4.13401 15 8Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-        : '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.5 5.5L6.5 12.5L3 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-      }
-      <div>
-        <div class="font-medium">${options.title || ''}</div>
-        ${options.description ? `<div class="text-xs opacity-80 mt-0.5">${options.description}</div>` : ''}
-      </div>
-    </div>
+  const el = document.createElement('div');
+  el.id = 'toast-notification';
+  
+  // 使用与整体风格一致的颜色，带透明度
+  const isSuccess = options.variant !== 'destructive';
+  const bgColor = isSuccess ? 'rgba(16, 185, 129, 0.85)' : 'rgba(239, 68, 68, 0.85)'; // emerald-500 / red-500 with opacity
+  
+  el.style.cssText = `
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 9999;
+    padding: 16px 24px;
+    border-radius: 16px;
+    background: ${bgColor};
+    color: white;
+    box-shadow: 0 20px 50px -10px rgba(0,0,0,0.3);
+    font-size: 15px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: toast-pop 0.25s ease-out;
   `;
   
-  // Add animation styles if not present
+  el.innerHTML = `
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      ${isSuccess 
+        ? '<path d="M20 6L9 17l-5-5"/>' 
+        : '<circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>'
+      }
+    </svg>
+    <span>${options.title || ''}</span>
+  `;
+  
   if (!document.getElementById('toast-styles')) {
     const style = document.createElement('style');
     style.id = 'toast-styles';
     style.textContent = `
-      @keyframes toast-in {
-        from { opacity: 0; transform: translate(-50%, -20px); }
-        to { opacity: 1; transform: translate(-50%, 0); }
+      @keyframes toast-pop {
+        0% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+        70% { transform: translate(-50%, -50%) scale(1.02); }
+        100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
       }
-      @keyframes toast-out {
-        from { opacity: 1; transform: translate(-50%, 0); }
-        to { opacity: 0; transform: translate(-50%, -20px); }
+      @keyframes toast-fade {
+        0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        100% { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
       }
     `;
     document.head.appendChild(style);
   }
   
-  document.body.appendChild(toastEl);
+  document.body.appendChild(el);
   
-  // Auto remove
   setTimeout(() => {
-    toastEl.style.animation = 'toast-out 0.3s ease-out forwards';
-    setTimeout(() => toastEl.remove(), 300);
-  }, 2500);
+    el.style.animation = 'toast-fade 0.2s ease-out forwards';
+    setTimeout(() => el.remove(), 200);
+  }, 1500);
 }

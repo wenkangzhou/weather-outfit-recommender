@@ -165,8 +165,8 @@ function WardrobeContent() {
   return (
     <main className="min-h-screen bg-background">
       <div className="max-w-md mx-auto">
-        {/* Header */}
-        <header className="pt-12 pb-4 px-5 flex items-center gap-4">
+        {/* Header - 刘海屏适配 */}
+        <header className="safe-area-header pb-4 px-5 flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={handleBack} className="rounded-full">
             <ChevronLeft size={20} />
           </Button>
@@ -180,12 +180,29 @@ function WardrobeContent() {
               <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
             </div>
           ) : items.length === 0 ? (
-            <div className="text-center py-20">
+            <div className="text-center py-12">
               <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-muted flex items-center justify-center text-4xl">
                 👕
               </div>
-              <p className="text-muted-foreground mb-2">{t('outfit.emptyWardrobe')}</p>
-              <p className="text-sm text-muted-foreground/70">点击下方分类添加衣物</p>
+              <p className="text-muted-foreground mb-6">{t('outfit.emptyWardrobe')}</p>
+              
+              {/* 空状态下显示分类添加按钮 */}
+              <div className="grid grid-cols-2 gap-3 px-4">
+                {CATEGORIES.map(cat => (
+                  <button
+                    key={cat.type}
+                    onClick={() => {
+                      setEditingItem(null);
+                      setDefaultCategory(cat.type);
+                      setShowAddModal(true);
+                    }}
+                    className="flex items-center gap-3 p-4 bg-card border border-border rounded-xl hover:border-primary/50 hover:bg-accent/50 transition-all"
+                  >
+                    <span className="text-2xl">{cat.icon}</span>
+                    <span className="text-sm font-medium">添加{cat.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           ) : (
             <div className="space-y-4">

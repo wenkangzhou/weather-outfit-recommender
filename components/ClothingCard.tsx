@@ -9,6 +9,7 @@ interface ClothingCardProps {
   onReplace?: () => void;
   showAdd?: boolean;
   onAdd?: () => void;
+  labelBadgeColor?: string; // 标签颜色类名
 }
 
 export default function ClothingCard({ 
@@ -17,7 +18,8 @@ export default function ClothingCard({
   icon,
   onReplace, 
   showAdd = false,
-  onAdd
+  onAdd,
+  labelBadgeColor
 }: ClothingCardProps) {
   // 添加模式
   if (showAdd) {
@@ -49,20 +51,24 @@ export default function ClothingCard({
       
       {/* Content */}
       <div className="flex-1 min-w-0">
-        {/* Name - 独占一行 */}
-        <div className="font-medium text-base truncate">
-          {item.name}
+        {/* Label Badge + Name row */}
+        <div className="flex items-center gap-2">
+          {/* 层级标签 */}
+          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${labelBadgeColor || 'bg-primary/10 text-primary'}`}>
+            {label}
+          </span>
+          {/* Name */}
+          <div className="font-medium text-base truncate">
+            {item.name}
+          </div>
         </div>
         
         {/* Second row: SubCategory + Tags */}
-        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+        <div className="flex items-center gap-2 mt-1 flex-wrap">
           {/* 子分类 */}
           <span className="text-xs text-muted-foreground">
             {getSubCategoryLabel(item.subCategory)}
           </span>
-          
-          {/* 分隔符 */}
-          <span className="text-muted-foreground/30">·</span>
           
           {/* 标签 */}
           {item.usage === 'running' && (

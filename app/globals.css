@@ -155,6 +155,17 @@
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif;
     font-feature-settings: "kern" 1, "liga" 1;
     text-rendering: optimizeLegibility;
+    /* 刘海屏安全区域适配 */
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  /* 安全区域工具类 */
+  .safe-area-top {
+    padding-top: max(12px, env(safe-area-inset-top));
+  }
+  
+  .safe-area-header {
+    padding-top: max(16px, env(safe-area-inset-top));
   }
   
   /* Numeric tabular figures for data */

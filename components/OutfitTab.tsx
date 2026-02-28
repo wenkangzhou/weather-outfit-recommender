@@ -67,9 +67,19 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
   const [showHatSelector, setShowHatSelector] = useState(false);
   const [replacingItem, setReplacingItem] = useState<'top' | 'bottom' | 'socks' | 'shoes' | 'hat' | null>(null);
   const [saving, setSaving] = useState(false);
+  
+  // 手动选择的多层上衣（用户自定义搭配）
+  const [manualTopLayers, setManualTopLayers] = useState<ClothingItem[] | null>(null);
+  const [showAddLayerModal, setShowAddLayerModal] = useState(false);
+  
+  // 删除确认对话框状态
+  const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; index: number } | null>(null);
 
   useEffect(() => {
-    setWeather(propWeather || getMockWeather());
+    // 只有当 propWeather 有值时才设置，否则保持 null（显示 loading）
+    if (propWeather) {
+      setWeather(propWeather);
+    }
   }, [propWeather]);
 
   const loadData = useCallback(async () => {
@@ -127,14 +137,84 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
   });
 
   const generateNewRecommendation = useCallback(() => {
-    if (!weather || !checkWardrobeCompleteness(allItems).isComplete) return;
+    if (!weather) return;
+    // 检查 wardrobe 是否有数据
+    const hasWardrobe = wardrobe.tops.length > 0 && wardrobe.bottoms.length > 0 && wardrobe.socks.length > 0 && wardrobe.shoes.length > 0;
+    if (!hasWardrobe) {
+      toast({ title: '请先添加衣物', description: '需要至少一件上衣、下装、袜子和鞋子' });
+      return;
+    }
     const rec = generateRecommendation(wardrobe, weather, preferences || getDefaultPreferences(), scene, runType);
     setRecommendation(rec);
-  }, [weather, wardrobe, preferences, scene, runType, allItems]);
+    toast({ title: '已生成新推荐' });
+  }, [weather, wardrobe, preferences, scene, runType]);
 
   const handleReplace = (category: 'top' | 'bottom' | 'socks' | 'shoes' | 'hat') => {
     setReplacingItem(category);
     setShowAlternatives(true);
+  };
+
+  // 添加一层上衣
+  const handleAddLayer = () => {
+    setShowAddLayerModal(true);
+  };
+
+  // 点击删除按钮 - 打开确认对话框
+  const handleRemoveLayer = (index: number) => {
+    setDeleteConfirm({ show: true, index });
+  };
+  
+  // 确认删除
+  const confirmRemoveLayer = () => {
+    if (!deleteConfirm) return;
+    const index = deleteConfirm.index;
+    
+    // 获取当前所有层（包括手动添加或算法推荐的）
+    const currentLayers = manualTopLayers || recommendation?.layeredTops || [recommendation?.outfit.top].filter(Boolean) as ClothingItem[];
+    const newLayers = currentLayers.filter((_, i) => i !== index);
+    setManualTopLayers(newLayers);
+    
+    // 更新推荐结果
+    if (recommendation) {
+      if (newLayers.length === 0) {
+        // 如果全部删除了，保持空（不应该发生，至少保留一件）
+        setRecommendation({
+          ...recommendation,
+          outfit: { ...recommendation.outfit },
+          layeredTops: undefined,
+        });
+      } else {
+        // 更新多层
+        setRecommendation({
+          ...recommendation,
+          outfit: { 
+            ...recommendation.outfit, 
+            top: newLayers[newLayers.length - 1] // 最外层作为主显示
+          },
+          layeredTops: newLayers.length > 1 ? newLayers : undefined,
+        });
+      }
+    }
+    setDeleteConfirm(null);
+  };
+
+  // 选择添加为新层
+  const selectAsNewLayer = (item: ClothingItem) => {
+    const currentLayers = manualTopLayers || [recommendation?.outfit.top].filter(Boolean) as ClothingItem[];
+    const newLayers = [...currentLayers, item];
+    setManualTopLayers(newLayers);
+    
+    if (recommendation) {
+      setRecommendation({
+        ...recommendation,
+        outfit: { 
+          ...recommendation.outfit, 
+          top: item // 新添加的作为最外层
+        },
+        layeredTops: newLayers,
+      });
+    }
+    setShowAddLayerModal(false);
   };
 
   const handleAddHat = () => {
@@ -161,10 +241,26 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
 
   const selectAlternative = (item: ClothingItem) => {
     if (!recommendation || !replacingItem) return;
-    setRecommendation({
-      ...recommendation,
-      outfit: { ...recommendation.outfit, [replacingItem]: item },
-    });
+    
+    if (replacingItem === 'top') {
+      // 更换上衣时，同步更新 layeredTops
+      const currentLayers = recommendation.layeredTops || [recommendation.outfit.top];
+      // 替换最外层（最后一层）
+      const newLayers = [...currentLayers];
+      newLayers[newLayers.length - 1] = item;
+      
+      setRecommendation({
+        ...recommendation,
+        outfit: { ...recommendation.outfit, top: item },
+        layeredTops: newLayers,
+      });
+      setManualTopLayers(newLayers);
+    } else {
+      setRecommendation({
+        ...recommendation,
+        outfit: { ...recommendation.outfit, [replacingItem]: item },
+      });
+    }
     setShowAlternatives(false);
     setReplacingItem(null);
   };
@@ -175,17 +271,30 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
     
     try {
       setSaving(true);
-      await saveOutfitToHistory({
-        items: recommendation.outfit,
+      
+      // 构建保存的数据，包含多层上衣
+      // 优先使用 manualTopLayers（用户手动调整的），否则使用 recommendation.layeredTops（算法推荐的）
+      const currentLayers = manualTopLayers !== null 
+        ? manualTopLayers 
+        : (recommendation.layeredTops || [recommendation.outfit.top]);
+      
+      // 如果只剩一层，更新 top 为该层；如果有多层，保存 layeredTops
+      const itemsToSave = {
+        ...recommendation.outfit,
+        top: currentLayers[currentLayers.length - 1] || recommendation.outfit.top,
+        layeredTops: currentLayers.length > 1 ? currentLayers : undefined,
+      };
+      
+      const result = await saveOutfitToHistory({
+        items: itemsToSave,
         weatherData: weather,
         locationName: weather.cityName || preferences?.location || '未知位置',
         scene,
         runType: scene === 'running' ? runType : undefined,
       });
-      toast({
-        title: '已保存',
-        description: '这套穿搭已记录到历史',
-      });
+      
+      // 显示成功提示
+      toast({ title: '穿搭已保存' });
     } catch (error) {
       console.error('Failed to save outfit:', error);
       toast({
@@ -228,17 +337,40 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
 
   const weatherTips = getWeatherTips();
 
-  // 获取可更换的备选列表
+  // 检查物品是否适合当前场景
+  const isItemSuitableForScene = (item: ClothingItem) => {
+    if (scene === 'commute') {
+      return item.usage === 'commute' || item.usage === 'both';
+    }
+    if (scene === 'running') {
+      return item.usage === 'running' || item.usage === 'both';
+    }
+    return true;
+  };
+
+  // 获取可更换的备选列表（已按场景过滤，并排除已选项）
   const getAlternativeItems = () => {
     if (!replacingItem) return [];
+    let items: ClothingItem[] = [];
     switch (replacingItem) {
-      case 'top': return wardrobe.tops;
-      case 'bottom': return wardrobe.bottoms;
-      case 'socks': return wardrobe.socks;
-      case 'shoes': return wardrobe.shoes;
-      case 'hat': return wardrobe.hats;
-      default: return [];
+      case 'top': 
+        items = wardrobe.tops; 
+        // 过滤掉已在 layeredTops 中的上衣
+        const currentTopIds = new Set(
+          (recommendation?.layeredTops || [recommendation?.outfit.top])
+            .filter(Boolean)
+            .map(t => t!.id)
+        );
+        return items.filter(item => 
+          isItemSuitableForScene(item) && !currentTopIds.has(item.id)
+        );
+      case 'bottom': items = wardrobe.bottoms; break;
+      case 'socks': items = wardrobe.socks; break;
+      case 'shoes': items = wardrobe.shoes; break;
+      case 'hat': items = wardrobe.hats; break;
     }
+    // 按场景过滤
+    return items.filter(isItemSuitableForScene);
   };
 
   // 获取当前选中的物品
@@ -247,10 +379,10 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
     return recommendation.outfit[replacingItem];
   };
 
-  if (loading) {
+  if (loading || !weather) {
     return (
       <div className="flex items-center justify-center h-screen pb-24">
-        <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
       </div>
     );
   }
@@ -260,7 +392,7 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
     return (
       <div className="min-h-screen pb-28 animate-fade-in">
         {/* Header */}
-        <header className="pt-12 px-5 flex items-center justify-between">
+        <header className="safe-area-header px-5 flex items-center justify-between">
           <button 
             onClick={() => setShowLocationPicker(true)}
             className="flex items-center gap-1.5 text-foreground/80 hover:text-foreground transition-colors"
@@ -312,7 +444,7 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
     return (
       <div className="min-h-screen pb-28 animate-fade-in">
         {/* Header */}
-        <header className="pt-12 px-5 flex items-center justify-between">
+        <header className="safe-area-header px-5 flex items-center justify-between">
           <button 
             onClick={() => setShowLocationPicker(true)}
             className="flex items-center gap-1.5 text-foreground/80 hover:text-foreground transition-colors"
@@ -415,7 +547,7 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
   return (
     <div className="min-h-screen pb-28 animate-fade-in">
       {/* Compact Header */}
-      <header className="pt-12 px-5 flex items-center justify-between">
+      <header className="safe-area-header px-5 flex items-center justify-between">
         <button 
           onClick={() => setShowLocationPicker(true)}
           className="flex items-center gap-1.5 text-foreground/80 hover:text-foreground transition-colors"
@@ -502,7 +634,74 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
         <div className="space-y-3">
           {/* 主要穿搭 - 列表形式，一行一个 */}
           <div className="space-y-2">
-            <ClothingCard item={recommendation?.outfit.top} label={t('clothing.top')} icon="👕" onReplace={() => handleReplace('top')} />
+            {/* 上衣 - 支持多层显示和编辑 */}
+            <div className="space-y-2">
+              {/* 多层上衣卡片容器 - 新设计 */}
+              <div className={`${(recommendation?.layeredTops?.length || 0) > 1 ? 'bg-gradient-to-br from-muted/50 to-muted/30 rounded-2xl p-3 space-y-2 border border-border/50' : ''}`}>
+                {/* 多层标题 */}
+                {(recommendation?.layeredTops?.length || 0) > 1 && (
+                  <div className="flex items-center justify-between px-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium">上衣搭配</span>
+                      <span className="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary rounded-full">{(recommendation?.layeredTops?.length || 1)} 层</span>
+                    </div>
+                  </div>
+                )}
+                
+                {(recommendation?.layeredTops || [recommendation?.outfit.top]).filter(Boolean).map((layer, index, arr) => {
+                  // 确定层级标签
+                  let layerLabel: string;
+                  let layerBadgeColor: string;
+                  if (arr.length === 1) {
+                    layerLabel = t('clothing.top');
+                    layerBadgeColor = 'bg-primary/10 text-primary';
+                  } else if (index === 0) {
+                    layerLabel = '内层';
+                    layerBadgeColor = 'bg-emerald-100 text-emerald-700';
+                  } else if (index === arr.length - 1) {
+                    layerLabel = '外层';
+                    layerBadgeColor = 'bg-amber-100 text-amber-700';
+                  } else {
+                    layerLabel = '中层';
+                    layerBadgeColor = 'bg-blue-100 text-blue-700';
+                  }
+                  return (
+                    <div key={layer!.id} className="group relative">
+                      <ClothingCard 
+                        item={layer!} 
+                        label={layerLabel}
+                        labelBadgeColor={layerBadgeColor}
+                        icon={index === arr.length - 1 ? '👕' : '👔'}
+                        onReplace={() => handleReplace('top')} 
+                      />
+                      {/* 多层时显示删除按钮 - 放在卡片右上角，hover时显示 */}
+                      {arr.length > 1 && (
+                        <button
+                          onClick={() => handleRemoveLayer(index)}
+                          className="absolute top-2 right-2 p-1.5 rounded-lg bg-background/80 backdrop-blur-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all opacity-0 group-hover:opacity-100 shadow-sm border border-transparent hover:border-destructive/20"
+                          title="删除这层"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                            <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              
+              {/* 添加上衣层按钮 */}
+              <button
+                onClick={handleAddLayer}
+                className="w-full py-2 px-4 border border-dashed border-border rounded-xl text-sm text-muted-foreground hover:text-foreground hover:border-primary/50 hover:bg-accent/50 transition-all flex items-center justify-center gap-1"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                添加上衣层
+              </button>
+            </div>
             <ClothingCard item={recommendation?.outfit.bottom} label={t('clothing.bottom')} icon="👖" onReplace={() => handleReplace('bottom')} />
             <ClothingCard item={recommendation?.outfit.socks} label={t('clothing.socks')} icon="🧦" onReplace={() => handleReplace('socks')} />
             <ClothingCard item={recommendation?.outfit.shoes} label={t('clothing.shoes')} icon="👟" onReplace={() => handleReplace('shoes')} />
@@ -551,8 +750,17 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
               disabled={saving}
               className="flex-1 h-10 text-sm"
             >
-              <Check size={14} className="mr-1.5" />
-              {saving ? '保存中...' : '确认穿搭'}
+              {saving ? (
+                <>
+                  <RefreshCw size={14} className="mr-1.5 animate-spin" />
+                  保存中...
+                </>
+              ) : (
+                <>
+                  <Check size={14} className="mr-1.5" />
+                  确认穿搭
+                </>
+              )}
             </Button>
           </div>
           
@@ -661,6 +869,79 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
                   </div>
                 </button>
               ))}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Add Layer Modal */}
+      {showAddLayerModal && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <Card className="w-full max-w-md max-h-[70vh] overflow-hidden shadow-2xl">
+            <div className="p-4 border-b border-border flex items-center justify-between">
+              <h3 className="font-medium">添加上衣层</h3>
+              <Button variant="ghost" size="icon" onClick={() => setShowAddLayerModal(false)}>
+                <XIcon />
+              </Button>
+            </div>
+            <div className="p-3 overflow-y-auto max-h-[50vh] space-y-2">
+              {wardrobe.tops
+                .filter(item => isItemSuitableForScene(item))
+                .filter(item => !(recommendation?.layeredTops || [recommendation?.outfit.top]).some(l => l?.id === item.id))
+                .map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => selectAsNewLayer(item)}
+                  className="w-full p-3 flex items-center gap-3 hover:bg-muted rounded-xl transition-colors text-left"
+                >
+                  <span className="text-xl">👕</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-sm truncate">{item.name}</div>
+                    <div className="text-xs text-muted-foreground">{t(`types.${item.subCategory}`)} · 保暖{item.warmthLevel}</div>
+                  </div>
+                  <span className="text-xs text-muted-foreground">添加为外层</span>
+                </button>
+              ))}
+              {wardrobe.tops.filter(item => isItemSuitableForScene(item)).length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  没有更多适合的上衣了
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Delete Confirm Modal */}
+      {deleteConfirm?.show && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <Card className="w-full max-w-sm overflow-hidden shadow-2xl">
+            <div className="p-6 text-center">
+              <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-destructive/10 flex items-center justify-center">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-destructive">
+                  <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium mb-2">删除这层穿搭？</h3>
+              <p className="text-sm text-muted-foreground mb-6">
+                此操作不可撤销，确定要删除吗？
+              </p>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setDeleteConfirm(null)}
+                >
+                  取消
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="flex-1"
+                  onClick={confirmRemoveLayer}
+                >
+                  删除
+                </Button>
+              </div>
             </div>
           </Card>
         </div>
