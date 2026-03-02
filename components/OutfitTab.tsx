@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import { MapPin, RefreshCw, ChevronDown, Wind, Droplets, Plus, Shirt, Check, History } from 'lucide-react';
+import { MapPin, RefreshCw, ChevronDown, Wind, Droplets, Plus, Shirt, Check, History, X } from 'lucide-react';
 import { ClothingItem, WeatherData, OutfitRecommendation, OutfitScene, UserPreferences, RunType } from '@/types';
 import { getMockWeather } from '@/lib/weather';
 import { generateRecommendation } from '@/lib/recommendation';
@@ -74,6 +74,12 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
   
   // 删除确认对话框状态
   const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; index: number } | null>(null);
+  
+  // 悬浮操作菜单状态
+  const [showActionMenu, setShowActionMenu] = useState(false);
+  
+  // 用户是否手动切换过跑步类型
+  const [runTypeChangedByUser, setRunTypeChangedByUser] = useState(false);
 
   useEffect(() => {
     // 只有当 propWeather 有值时才设置，否则保持 null（显示 loading）
@@ -82,14 +88,18 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
     }
   }, [propWeather]);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (showLoading = false) => {
     if (!weather) return;
     
     try {
-      setLoading(true);
+      // 只有明确需要时才显示 loading，避免 tab 切换时闪烁
+      if (showLoading) {
+        setLoading(true);
+      }
       const prefs = await getUserPreferences();
       setPreferences(prefs);
-      if (prefs?.defaultRunType) {
+      // 只在初始化时设置默认跑步类型，不覆盖用户手动选择
+      if (prefs?.defaultRunType && !runTypeChangedByUser) {
         setRunType(prefs.defaultRunType);
       }
       
@@ -127,8 +137,18 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
   }, [weather, scene, runType]);
 
   useEffect(() => {
-    loadData();
+    // tab 切换时：如果已有数据，不显示 loading；如果是首次加载，显示 loading
+    const isFirstLoad = !wardrobe.tops.length && !allItems.length;
+    loadData(isFirstLoad);
   }, [loadData]);
+
+  // 监听跑步类型变化，自动重新生成推荐
+  useEffect(() => {
+    if (scene === 'running' && weather && wardrobe.tops.length > 0) {
+      generateNewRecommendation();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runType]);
 
   const getDefaultPreferences = (): UserPreferences => ({
     id: 'default',
@@ -162,7 +182,6 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
       excludeItems
     );
     setRecommendation(rec);
-    toast({ title: '已生成新推荐' });
   }, [weather, wardrobe, preferences, scene, runType, recommendation]);
 
   const handleReplace = (category: 'top' | 'bottom' | 'socks' | 'shoes' | 'hat') => {
@@ -406,7 +425,7 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
   // ===== 衣柜为空状态 =====
   if (wardrobeStatus.isEmpty) {
     return (
-      <div className="min-h-screen pb-28 animate-fade-in">
+      <div className="min-h-screen pb-16 animate-fade-in">
         {/* Header */}
         <header className="safe-area-header px-5 flex items-center justify-between">
           <button 
@@ -458,7 +477,7 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
   // ===== 衣柜不完整状态 =====
   if (!wardrobeStatus.isComplete) {
     return (
-      <div className="min-h-screen pb-28 animate-fade-in">
+      <div className="min-h-screen pb-16 animate-fade-in">
         {/* Header */}
         <header className="safe-area-header px-5 flex items-center justify-between">
           <button 
@@ -561,7 +580,7 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
 
   // ===== 正常状态：显示穿搭推荐 =====
   return (
-    <div className="min-h-screen pb-28 animate-fade-in">
+    <div className="min-h-screen pb-16 animate-fade-in">
       {/* Compact Header */}
       <header className="safe-area-header px-5 flex items-center justify-between">
         <button 
@@ -592,35 +611,57 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
 
       {/* Main Outfit Display - Core Area */}
       <section className="pt-4 px-5">
-        {/* Temperature & Weather Info */}
-        <div className="flex items-center justify-between mb-4">
-          {/* Left: Temperature & Weather Icon */}
-          <div className="flex items-center gap-3">
-            <div className="text-4xl">
+        {/* Temperature & Weather Info - 紧凑布局 */}
+        <div className="flex items-center justify-between mb-3">
+          {/* Left: Weather Icon & Temp */}
+          <div className="flex items-center gap-2.5">
+            <div className="text-3xl">
               {weather?.isRaining ? '🌧️' : 
                weather?.weatherCode && weather.weatherCode >= 801 ? '☁️' : 
                weather?.weatherCode && weather.weatherCode >= 800 ? '☀️' : '⛅'}
             </div>
             <div>
-              <div className="text-3xl font-light text-foreground leading-none">{weather?.temp ?? 15}°</div>
-              <div className="text-muted-foreground text-xs mt-0.5">
-                {weather?.description ?? '多云'} · 体感 {weather?.feelsLike ?? 13}°
+              <div className="text-2xl font-light text-foreground leading-none">{weather?.temp ?? 15}°</div>
+              <div className="text-muted-foreground text-[11px] mt-0.5">
+                体感 {weather?.feelsLike ?? 13}°
               </div>
             </div>
           </div>
           
-          {/* Right: Weather Metrics */}
-          <div className="flex flex-col items-end gap-1">
-            <div className="flex items-center gap-1 text-xs">
-              <Wind size={12} className="text-blue-500" />
-              <span className="font-medium tabular-nums text-foreground">{Math.round(weather?.windSpeed ?? 3)}m/s</span>
-            </div>
-            <div className="flex items-center gap-1 text-xs">
-              <Droplets size={12} className="text-cyan-500" />
-              <span className="font-medium tabular-nums text-foreground">{weather?.humidity ?? 65}%</span>
+          {/* Right: Weather Metrics + Tips 紧凑排列 */}
+          <div className="flex items-center gap-4">
+            {/* Weather Tips */}
+            {weatherTips.length > 0 && (
+              <div className="flex flex-col items-end gap-0.5">
+                {weatherTips.slice(0, 2).map((tip, index) => (
+                  <div key={index} className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400">
+                    <div className="w-1 h-1 rounded-full bg-amber-500" />
+                    <span className="truncate max-w-[100px]">{tip}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {/* Wind & Humidity */}
+            <div className="flex flex-col items-end gap-0.5 text-[11px]">
+              <div className="flex items-center gap-1">
+                <Wind size={11} className="text-blue-500" />
+                <span className="font-medium tabular-nums text-foreground">{Math.round(weather?.windSpeed ?? 3)}m/s</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Droplets size={11} className="text-cyan-500" />
+                <span className="font-medium tabular-nums text-foreground">{weather?.humidity ?? 65}%</span>
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Reasoning - 推荐理由卡片 */}
+        {recommendation && (
+          <Card className="mx-0 mb-3 p-3 bg-primary/5 border-primary/20">
+            <p className="text-xs text-foreground/80 text-center">{recommendation.reasoning}</p>
+          </Card>
+        )}
 
         {/* Run Type Selector (only for running) */}
         {scene === 'running' && (
@@ -629,7 +670,10 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
               {RUN_TYPES.map((run) => (
                 <button
                   key={run.type}
-                  onClick={() => setRunType(run.type)}
+                  onClick={() => {
+                    setRunType(run.type);
+                    setRunTypeChangedByUser(true);
+                  }}
                   className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-all ${
                     runType === run.type
                       ? 'bg-primary text-primary-foreground'
@@ -639,9 +683,6 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
                   {run.label}
                 </button>
               ))}
-            </div>
-            <div className="mt-1.5 text-[11px] text-muted-foreground text-center">
-              {RUN_TYPES.find(r => r.type === runType)?.desc}
             </div>
           </div>
         )}
@@ -721,63 +762,27 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
             <ClothingCard item={recommendation?.outfit.bottom} label={t('clothing.bottom')} icon="👖" onReplace={() => handleReplace('bottom')} />
             <ClothingCard item={recommendation?.outfit.socks} label={t('clothing.socks')} icon="🧦" onReplace={() => handleReplace('socks')} />
             <ClothingCard item={recommendation?.outfit.shoes} label={t('clothing.shoes')} icon="👟" onReplace={() => handleReplace('shoes')} />
-          </div>
-
-          {/* 帽子 - 可选 */}
-          {wardrobeStatus.hasHat && (
-            <div className="pt-2">
-              {recommendation?.outfit.hat ? (
-                <ClothingCard 
-                  item={recommendation.outfit.hat} 
-                  label="帽子" 
-                  icon="🧢"
-                  onReplace={() => handleReplace('hat')} 
-                />
-              ) : (
-                <ClothingCard 
-                  showAdd 
-                  label="帽子" 
-                  icon="🧢"
-                  onAdd={handleAddHat}
-                />
-              )}
-            </div>
-          )}
-
-          {/* Reasoning */}
-          {recommendation && (
-            <Card className="p-3 bg-primary/5 border-primary/20">
-              <p className="text-xs text-foreground/80">{recommendation.reasoning}</p>
-            </Card>
-          )}
-
-          {/* Action Buttons */}
-          <div className="flex gap-2">
-            <Button
-              onClick={generateNewRecommendation}
-              variant="secondary"
-              className="flex-1 h-10 text-sm"
-            >
-              <RefreshCw size={14} className="mr-1.5" />
-              {t('outfit.refresh')}
-            </Button>
-            <Button
-              onClick={handleSaveOutfit}
-              disabled={saving}
-              className="flex-1 h-10 text-sm"
-            >
-              {saving ? (
-                <>
-                  <RefreshCw size={14} className="mr-1.5 animate-spin" />
-                  保存中...
-                </>
-              ) : (
-                <>
-                  <Check size={14} className="mr-1.5" />
-                  确认穿搭
-                </>
-              )}
-            </Button>
+            
+            {/* 帽子 - 可选 */}
+            {wardrobeStatus.hasHat && (
+              <>
+                {recommendation?.outfit.hat ? (
+                  <ClothingCard 
+                    item={recommendation.outfit.hat} 
+                    label="帽子" 
+                    icon="🧢"
+                    onReplace={() => handleReplace('hat')} 
+                  />
+                ) : (
+                  <ClothingCard 
+                    showAdd 
+                    label="帽子" 
+                    icon="🧢"
+                    onAdd={handleAddHat}
+                  />
+                )}
+              </>
+            )}
           </div>
           
           {/* View History Link */}
@@ -791,19 +796,7 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
         </div>
       </section>
 
-      {/* Weather Tips */}
-      {weatherTips.length > 0 && (
-        <section className="px-5 mt-3">
-          <div className="space-y-1.5">
-            {weatherTips.map((tip, index) => (
-              <div key={index} className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400">
-                <div className="w-1 h-1 rounded-full bg-amber-500" />
-                {tip}
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+
 
       {/* Location Picker Modal */}
       {showLocationPicker && (
@@ -962,6 +955,54 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
           </Card>
         </div>
       )}
+
+      {/* Floating Action Button - 右下角悬浮按钮 */}
+      <div className="fixed bottom-[120px] right-4 z-40 flex flex-col items-end gap-2">
+        {/* 展开的菜单按钮 */}
+        {showActionMenu && (
+          <div className="flex flex-col items-end gap-2 mb-2 animate-fade-in">
+            <button
+              onClick={() => {
+                generateNewRecommendation();
+                setShowActionMenu(false);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-full shadow-lg text-sm font-medium hover:bg-slate-700 transition-all"
+            >
+              <RefreshCw size={16} />
+              重新推荐
+            </button>
+            <button
+              onClick={() => {
+                handleSaveOutfit();
+                setShowActionMenu(false);
+              }}
+              disabled={saving}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-full shadow-lg text-sm font-medium hover:bg-slate-700 transition-all disabled:opacity-50"
+            >
+              {saving ? <RefreshCw size={16} className="animate-spin" /> : <Check size={16} />}
+              确认穿搭
+            </button>
+          </div>
+        )}
+        
+        {/* 主悬浮按钮 - 使用魔法棒/闪电图标 */}
+        <button
+          onClick={() => setShowActionMenu(!showActionMenu)}
+          className={`w-12 h-12 rounded-full shadow-xl flex items-center justify-center transition-all duration-300 ${
+            showActionMenu 
+              ? 'bg-muted rotate-90' 
+              : 'bg-primary text-primary-foreground hover:bg-primary/90'
+          }`}
+        >
+          {showActionMenu ? (
+            <X size={20} />
+          ) : (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+            </svg>
+          )}
+        </button>
+      </div>
     </div>
   );
 }

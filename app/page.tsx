@@ -118,9 +118,6 @@ function AppContent() {
           <SettingsTab />
         </div>
 
-        {/* Spacer for bottom nav */}
-        <div className="h-20" />
-
         {/* Bottom Navigation */}
         <nav className="bottom-nav">
           <NavItem 

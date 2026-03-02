@@ -42,25 +42,28 @@ export default function SettingsTab() {
     }
   }, []);
 
-  // Load preferences and counts
+  // Load preferences and counts - 首次加载显示 loading
   useEffect(() => {
     setMounted(true);
-    loadData();
+    loadData(true);
   }, []);
 
-  // Refresh data when tab becomes visible
+  // Refresh data when tab becomes visible - 后台刷新不显示 loading
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        loadData();
+        loadData(false);
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
-  const loadData = async () => {
-    setIsLoadingCounts(true);
+  const loadData = async (showLoading = false) => {
+    // 只有明确需要时才显示 loading，避免 tab 切换时闪烁
+    if (showLoading) {
+      setIsLoadingCounts(true);
+    }
     try {
       const [prefs, items, history] = await Promise.all([
         getUserPreferences(),
@@ -75,7 +78,9 @@ export default function SettingsTab() {
       setWardrobeCount(items.length);
       setHistoryCount(history.length);
     } finally {
-      setIsLoadingCounts(false);
+      if (showLoading) {
+        setIsLoadingCounts(false);
+      }
     }
   };
 
@@ -118,7 +123,7 @@ export default function SettingsTab() {
   }
 
   return (
-    <div className="min-h-screen pb-28 animate-fade-in">
+    <div className="min-h-screen pb-16 animate-fade-in">
       {/* Header - 刘海屏安全区域 */}
       <div className="safe-area-header" />
 
