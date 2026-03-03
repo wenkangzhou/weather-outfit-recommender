@@ -102,6 +102,18 @@ export interface OutfitHistory {
   createdAt: string;
 }
 
+// Reasoning data for i18n
+export interface ReasoningData {
+  layerCount?: number;
+  layerTypes?: ('base' | 'mid' | 'outer')[];
+  coverage?: number;
+  scene: OutfitScene;
+  runType?: RunType;
+  targetTemp: number;
+  isRaining: boolean;
+  isExtremeHeat: boolean;
+}
+
 // Recommendation with reasoning
 export interface OutfitRecommendation {
   outfit: {
@@ -115,6 +127,7 @@ export interface OutfitRecommendation {
     weatherSnapshot: WeatherData;
   };
   reasoning: string;
+  reasoningData: ReasoningData; // 结构化的推荐理由数据，支持 i18n
   weatherTips: string[]; // 天气提示：风大、湿度大、下雨等
   alternatives?: {
     top?: ClothingItem[];

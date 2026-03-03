@@ -116,7 +116,7 @@ export default function SettingsTab() {
         <div className="safe-area-header" />
         <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
           <div className="w-10 h-10 border-3 border-primary/20 border-t-primary rounded-full animate-spin" />
-          <p className="text-sm text-muted-foreground">加载数据中...</p>
+          <p className="text-sm text-muted-foreground">{t('common.loading')}...</p>
         </div>
       </div>
     );
@@ -132,20 +132,20 @@ export default function SettingsTab() {
         <section>
           <div className="settings-section-title">
             <User size={16} className="text-blue-500" />
-            账户
+            {t('settings.account')}
           </div>
           
           {userStatus === 'guest' ? (
             <Card className="settings-card">
               <div className="p-4">
                 <p className="text-sm text-muted-foreground mb-4">
-                  当前为访客模式，数据仅保存在当前设备。登录后可同步数据到云端。
+                  {t('settings.guestDescription')}
                 </p>
                 <Button 
                   className="w-full" 
                   onClick={() => setShowLoginModal(true)}
                 >
-                  登录 / 注册
+                  {t('settings.login')} / {t('settings.register')}
                 </Button>
               </div>
             </Card>
@@ -153,8 +153,8 @@ export default function SettingsTab() {
             <Card className="settings-card">
               <div className="p-4 flex items-center justify-between">
                 <div>
-                  <div className="font-medium">用户 {userDisplay}...</div>
-                  <div className="text-sm text-muted-foreground">数据已同步到云端</div>
+                  <div className="font-medium">{t('settings.user')} {userDisplay}...</div>
+                  <div className="text-sm text-muted-foreground">{t('settings.synced')}</div>
                 </div>
                 <Button 
                   variant="outline" 
@@ -165,7 +165,7 @@ export default function SettingsTab() {
                     setUserDisplay('');
                   }}
                 >
-                  退出
+                  {t('settings.logout')}
                 </Button>
               </div>
             </Card>

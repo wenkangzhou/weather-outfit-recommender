@@ -59,7 +59,7 @@ export default function CityPicker({ currentCity, onSelect, onClose }: CityPicke
     <div className="fixed inset-0 bg-background/95 backdrop-blur-xl z-50 animate-fade-in">
       <div className="max-w-md mx-auto h-full flex flex-col">
         {/* Header */}
-        <header className="pt-12 pb-4 px-5 flex items-center gap-4 shrink-0">
+        <header className="pt-8 pb-4 px-5 flex items-center gap-4 shrink-0">
           {viewMode === 'cities' ? (
             <Button variant="ghost" size="icon" onClick={() => setViewMode('provinces')} className="rounded-full">
               <ChevronRight className="rotate-180" size={20} />

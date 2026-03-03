@@ -139,6 +139,7 @@ function WardrobeContent() {
     await updateClothingItem(id, updates);
     await loadItems();
     setEditingItem(null);
+    setShowAddModal(false); // 关闭模态框回到衣柜列表
   };
 
   const handleDeleteItem = async (id: string) => {
@@ -213,7 +214,10 @@ function WardrobeContent() {
                   items={groupedItems[cat.type]}
                   isExpanded={expandedCategories[cat.type] || false}
                   onToggle={() => toggleCategory(cat.type)}
-                  onEdit={setEditingItem}
+                  onEdit={(item) => {
+                    setEditingItem(item);
+                    setShowAddModal(true);
+                  }}
                   onDelete={setDeletingItem}
                   onAdd={() => {
                     setEditingItem(null);
@@ -307,12 +311,22 @@ function CategorySection({
 
               {/* Info */}
               <div className="flex-1 min-w-0">
-                <div className="font-medium truncate">{item.name}</div>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-xs text-muted-foreground">{t(`types.${item.subCategory}`)}</span>
+                <div className="flex items-center gap-2">
+                  <div className="font-medium truncate max-w-[200px]">{item.name}</div>
+                  {/* 保暖值 - 算法核心参数 */}
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0 ${
+                    item.warmthLevel <= 3 ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' :
+                    item.warmthLevel <= 6 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300' :
+                    'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                  }`}>
+                    保暖{item.warmthLevel}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 mt-0.5 overflow-hidden">
+                  <span className="text-xs text-muted-foreground shrink-0">{t(`types.${item.subCategory}`)}</span>
                   
                   {/* Tags */}
-                  <div className="flex items-center gap-1 flex-wrap">
+                  <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
                     {item.usage === 'running' && (
                       <span className="text-[10px] px-1.5 py-0.5 bg-gradient-to-r from-orange-400 to-amber-400 text-white rounded font-medium">
                         跑步
@@ -411,16 +425,39 @@ function AddEditItemModal({
   onUpdate: (id: string, updates: Partial<Omit<ClothingItem, 'id' | 'createdAt'>>) => void;
 }) {
   const { t } = useTranslation();
+  const [mounted, setMounted] = useState(false);
   const isEditing = !!item;
   const selectedCategory = item?.category || defaultCategory;
   
-  const [name, setName] = useState(item?.name || '');
-  const [subCategory, setSubCategory] = useState<ClothingSubCategory | null>(item?.subCategory || null);
-  const [warmthLevel, setWarmthLevel] = useState(item?.warmthLevel || 5);
-  const [waterResistant, setWaterResistant] = useState(item?.waterResistant || false);
-  const [windResistant, setWindResistant] = useState(item?.windResistant || false);
-  const [hasPockets, setHasPockets] = useState(item?.hasPockets || false);
-  const [usage, setUsage] = useState<'commute' | 'running' | 'both'>(item?.usage || 'both');
+  const [name, setName] = useState('');
+  const [subCategory, setSubCategory] = useState<ClothingSubCategory | null>(null);
+  const [warmthLevel, setWarmthLevel] = useState(5);
+  const [waterResistant, setWaterResistant] = useState(false);
+  const [windResistant, setWindResistant] = useState(false);
+  const [hasPockets, setHasPockets] = useState(false);
+  const [usage, setUsage] = useState<'commute' | 'running' | 'both'>('both');
+  
+  // 客户端挂载后再初始化表单值，避免 SSR/客户端不一致
+  useEffect(() => {
+    setMounted(true);
+    if (item) {
+      setName(item.name || '');
+      setSubCategory(item.subCategory || null);
+      setWarmthLevel(item.warmthLevel || 5);
+      setWaterResistant(item.waterResistant || false);
+      setWindResistant(item.windResistant || false);
+      setHasPockets(item.hasPockets || false);
+      setUsage(item.usage || 'both');
+    } else {
+      setName('');
+      setSubCategory(null);
+      setWarmthLevel(5);
+      setWaterResistant(false);
+      setWindResistant(false);
+      setHasPockets(false);
+      setUsage('both');
+    }
+  }, [item]);
 
   const handleSubmit = () => {
     if (!selectedCategory || !subCategory || !name.trim()) return;
@@ -447,11 +484,20 @@ function AddEditItemModal({
   const showWaterWind = selectedCategory !== 'socks';
   const categoryInfo = CATEGORIES.find(c => c.type === selectedCategory);
 
+  // 避免 SSR/客户端渲染不一致，未挂载时显示 loading
+  if (!mounted) {
+    return (
+      <div className="fixed inset-0 bg-background/95 backdrop-blur-xl z-50 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 bg-background/95 backdrop-blur-xl z-50 animate-fade-in">
       <div className="max-w-md mx-auto h-full flex flex-col">
         {/* Modal Header */}
-        <header className="pt-12 pb-4 px-5 flex items-center gap-4 shrink-0">
+        <header className="pt-8 pb-4 px-5 flex items-center gap-4 shrink-0">
           <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full">
             <X size={20} />
           </Button>

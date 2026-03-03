@@ -8,17 +8,46 @@ import {
 } from '@/types';
 
 // ============================================
-// 温度算法配置
+// 活动强度温度配置
 // ============================================
 
-// 场景目标舒适温度（体感温度）
-const TARGET_TEMPS = {
-  commute: 25,      // 通勤：舒适办公温度
-  running: {
-    easy: 18,       // 有氧跑：舒适，产热少
-    long: 15,       // 长距离：稍凉，稳定产热
-    interval: 12,   // 间歇：更凉，高强度产热多
-  }
+// 统一按活动强度配置：目标温度 + 舒适区间 + 产热量
+// 注意：目标温度是户外活动的体感舒适温度（室内可以脱衣调节）
+const ACTIVITY_CONFIG: Record<string, { 
+  target: number; 
+  range: [number, number]; 
+  heatGain: number;
+  label: string;
+}> = {
+  // 通勤：目标舒适温度 24°C（室内办公/居家舒适温度）
+  // 虽然实际户外可能更冷，但用户可以在室内脱衣调节
+  commute:  { 
+    target: 24,       // 室内舒适温度
+    range: [22, 26],  // 舒适区间
+    heatGain: 0,      // 静坐无产热
+    label: '通勤' 
+  },
+  // 有氧慢跑：8-15°C
+  easy:     { 
+    target: 11.5, 
+    range: [8, 15], 
+    heatGain: 3,      // 中等产热
+    label: '有氧跑' 
+  },
+  // 长距离（半马以上）：7-13°C
+  long:     { 
+    target: 10, 
+    range: [7, 13], 
+    heatGain: 4,      // 稳定高产热
+    label: '长距离' 
+  },
+  // 间歇跑（高强度）：5-12°C
+  interval: { 
+    target: 8.5, 
+    range: [5, 12], 
+    heatGain: 6,      // 高强度产热
+    label: '间歇跑' 
+  },
 };
 
 // 衣物保暖值映射（warmthLevel 1-10 映射到实际升温值°C）
@@ -40,39 +69,30 @@ const BODY_PART_WEIGHTS = {
 // 核心温度计算
 // ============================================
 
+// 高温兜底阈值
+const EXTREME_HEAT_THRESHOLD = 28; // 超过此温度，无论如何穿都热，推荐最薄
+
 // 计算体感温度
+// 直接使用天气 API 返回的 feelsLike，再加上活动产热调整
 function calculateEffectiveTemp(
   weather: WeatherData, 
   scene: OutfitScene,
   runType?: RunType
 ): number {
+  // 直接使用天气 API 返回的体感温度（已包含湿度、风速等因素）
   let effectiveTemp = weather.feelsLike;
   
-  // 湿度影响
-  if (weather.humidity > 80) {
-    if (effectiveTemp > 20) {
-      effectiveTemp += 2; // 闷热
-    } else if (effectiveTemp < 10) {
-      effectiveTemp -= 2; // 湿冷
-    }
-  }
-  
-  // 跑步产热调整（降低目标感知温度）
+  // 仅调整活动产热（人体自身产热，不在天气 API 计算范围内）
   if (scene === 'running' && runType) {
-    switch (runType) {
-      case 'easy':
-        effectiveTemp -= 2;  // 有氧：轻微产热
-        break;
-      case 'long':
-        effectiveTemp -= 4;  // 长距离：中等产热
-        break;
-      case 'interval':
-        effectiveTemp -= 6;  // 间歇：高强度产热
-        break;
-    }
+    effectiveTemp -= ACTIVITY_CONFIG[runType].heatGain;
   }
   
   return effectiveTemp;
+}
+
+// 判断是否高温兜底场景
+function shouldUseMinimumWarmth(effectiveTemp: number): boolean {
+  return effectiveTemp >= EXTREME_HEAT_THRESHOLD;
 }
 
 // 计算目标保暖总值
@@ -80,21 +100,41 @@ function calculateTargetWarmth(
   weather: WeatherData,
   scene: OutfitScene,
   runType?: RunType
-): number {
+): { 
+  neededWarmth: number; 
+  effectiveTemp: number;
+  targetTemp: number;
+  isExtremeHeat: boolean;
+  tempRange: [number, number];
+} {
   const effectiveTemp = calculateEffectiveTemp(weather, scene, runType);
   
-  // 获取目标舒适温度
-  let targetTemp: number;
-  if (scene === 'commute') {
-    targetTemp = TARGET_TEMPS.commute;
-  } else {
-    targetTemp = TARGET_TEMPS.running[runType || 'easy'];
+  // 高温兜底：超过 28°C，无论如何穿都热
+  if (shouldUseMinimumWarmth(effectiveTemp)) {
+    return {
+      neededWarmth: 0,
+      effectiveTemp,
+      targetTemp: 0,
+      isExtremeHeat: true,
+      tempRange: [0, 0]
+    };
   }
   
-  // 需要的保暖总值 = 目标温度 - 体感温度
-  const neededWarmth = targetTemp - effectiveTemp;
+  // 获取配置
+  const config = scene === 'commute' 
+    ? ACTIVITY_CONFIG.commute 
+    : ACTIVITY_CONFIG[runType || 'easy'];
   
-  return Math.max(0, neededWarmth); // 不能为负（不需要降温）
+  // 需要的保暖总值 = 目标温度 - 体感温度
+  const neededWarmth = config.target - effectiveTemp;
+  
+  return {
+    neededWarmth: Math.max(0, neededWarmth),
+    effectiveTemp,
+    targetTemp: config.target,
+    isExtremeHeat: false,
+    tempRange: config.range
+  };
 }
 
 // 计算单件衣物的实际保暖贡献
@@ -228,6 +268,99 @@ function scoreHat(
   return score;
 }
 
+// 评分下装（新逻辑）
+function scoreBottom(
+  item: ClothingItem,
+  isCold: boolean,
+  effectiveTemp: number,
+  scene: OutfitScene
+): number {
+  let score = 0;
+  
+  // 场景匹配
+  if (item.usage === 'both') score += 10;
+  else if ((scene === 'commute' && item.usage === 'commute') ||
+           (scene === 'running' && item.usage === 'running')) {
+    score += 20;
+  }
+  
+  // 寒冷天气（通勤场景）：优先保暖值>=7的
+  if (isCold && scene === 'commute') {
+    if (item.warmthLevel >= 7) score += 50;
+    else score -= 30;
+  }
+  
+  // 跑步场景已有强制规则（5度以上不能长裤），这里只需场景匹配
+  if (scene === 'running' && item.subCategory === 'half-tights') {
+    score += 10; // 半弹偏好
+  }
+  
+  return score;
+}
+
+// 评分袜子（新逻辑）
+function scoreSocks(
+  item: ClothingItem,
+  isCold: boolean,
+  scene: OutfitScene
+): number {
+  let score = 0;
+  
+  // 场景匹配
+  if (item.usage === 'both') score += 10;
+  else if ((scene === 'commute' && item.usage === 'commute') ||
+           (scene === 'running' && item.usage === 'running')) {
+    score += 20;
+  }
+  
+  // 通勤场景+寒冷：优先保暖值>=7的
+  if (isCold && scene === 'commute') {
+    if (item.warmthLevel >= 7) score += 50;
+    else score -= 30;
+  }
+  
+  // 跑步场景：厚袜长袜偏好（保护脚踝）
+  if (scene === 'running') {
+    if (item.subCategory === 'long-socks' || item.subCategory === 'thick-socks') {
+      score += 10;
+    }
+  }
+  
+  return score;
+}
+
+// 评分鞋子（新逻辑）
+function scoreShoes(
+  item: ClothingItem,
+  isCold: boolean,
+  scene: OutfitScene,
+  weather: WeatherData
+): number {
+  let score = 0;
+  
+  // 场景匹配
+  if (scene === 'running' && item.subCategory === 'running-shoes') {
+    score += 30; // 跑步场景强偏好跑鞋
+  }
+  if (scene === 'commute' && 
+      (item.subCategory === 'casual-shoes' || item.subCategory === 'slippers')) {
+    score += 20;
+  }
+  
+  // 通勤场景+寒冷：优先保暖值>=7的
+  if (isCold && scene === 'commute') {
+    if (item.warmthLevel >= 7) score += 50;
+    else score -= 30;
+  }
+  
+  // 雨天防水
+  if (weather.isRaining && item.waterResistant) {
+    score += 15;
+  }
+  
+  return score;
+}
+
 // ============================================
 // 天气提示
 // ============================================
@@ -261,9 +394,52 @@ function generateWeatherTips(weather: WeatherData): string[] {
 }
 
 // ============================================
-// 推荐理由生成
+// 推荐理由生成 - 返回结构化的理由数据，支持 i18n
 // ============================================
 
+export interface ReasoningData {
+  layerCount?: number;
+  layerTypes?: LayerType[];
+  coverage?: number;
+  scene: OutfitScene;
+  runType?: RunType;
+  targetTemp: number;
+  isRaining: boolean;
+  isExtremeHeat: boolean;
+}
+
+function generateReasoningData(
+  weather: WeatherData,
+  scene: OutfitScene,
+  runType?: RunType,
+  effectiveTemp?: number,
+  outfitWarmth?: number,
+  neededWarmth?: number,
+  layerTypes?: LayerType[],
+  isExtremeHeat?: boolean,
+  tempRange?: [number, number]
+): ReasoningData {
+  const targetTemp = scene === 'running' && runType 
+    ? ACTIVITY_CONFIG[runType].target 
+    : ACTIVITY_CONFIG.commute.target;
+    
+  const coverage = neededWarmth !== undefined && outfitWarmth !== undefined && neededWarmth > 0
+    ? Math.min(100, Math.round((outfitWarmth / neededWarmth) * 100))
+    : undefined;
+  
+  return {
+    layerCount: layerTypes?.length,
+    layerTypes,
+    coverage,
+    scene,
+    runType,
+    targetTemp,
+    isRaining: weather.isRaining,
+    isExtremeHeat: isExtremeHeat ?? false
+  };
+}
+
+// 兼容旧版：返回字符串（组件层应改用 generateReasoningData 自行组装）
 function generateReasoning(
   weather: WeatherData,
   scene: OutfitScene,
@@ -271,44 +447,42 @@ function generateReasoning(
   effectiveTemp?: number,
   outfitWarmth?: number,
   neededWarmth?: number,
-  layerTypes?: LayerType[]
+  layerTypes?: LayerType[],
+  isExtremeHeat?: boolean,
+  tempRange?: [number, number]
 ): string {
-  const reasons: string[] = [];
+  const data = generateReasoningData(weather, scene, runType, effectiveTemp, outfitWarmth, neededWarmth, layerTypes, isExtremeHeat, tempRange);
   
-  if (effectiveTemp !== undefined) {
-    reasons.push(`体感 ${Math.round(effectiveTemp)}°C`);
+  if (data.isExtremeHeat) {
+    return 'Extreme heat, lightweight recommended';
   }
   
-  // 显示分层信息
-  if (layerTypes && layerTypes.length > 0) {
+  const parts: string[] = [];
+  
+  if (data.layerCount && data.layerTypes) {
     const layerNames: Record<LayerType, string> = {
-      base: '打底',
-      mid: '中间',
-      outer: '外层'
+      base: 'Base',
+      mid: 'Mid',
+      outer: 'Outer'
     };
-    const layerDesc = layerTypes.map(t => layerNames[t]).join('+');
-    reasons.push(`${layerTypes.length}层(${layerDesc})`);
+    const layerDesc = data.layerTypes.map(t => layerNames[t]).join('+');
+    parts.push(`${data.layerCount} layers(${layerDesc})`);
   }
   
-  if (neededWarmth !== undefined && outfitWarmth !== undefined) {
-    const coverage = Math.min(100, Math.round((outfitWarmth / neededWarmth) * 100));
-    reasons.push(`保暖${coverage}%`);
+  if (data.coverage !== undefined) {
+    parts.push(`${data.coverage}% warmth`);
   }
   
-  if (scene === 'running' && runType) {
-    const runTypeLabels: Record<RunType, string> = {
-      easy: '有氧跑，目标 18°C',
-      long: '长距离，目标 15°C',
-      interval: '间歇跑，目标 12°C',
-    };
-    reasons.push(runTypeLabels[runType]);
+  const sceneLabel = data.scene === 'running' && data.runType
+    ? data.runType.charAt(0).toUpperCase() + data.runType.slice(1)
+    : 'Commute';
+  parts.push(`${sceneLabel}, target ${data.targetTemp}°C`);
+  
+  if (data.isRaining) {
+    parts.push('Waterproof priority');
   }
   
-  if (weather.isRaining) {
-    reasons.push('雨天优先防水');
-  }
-  
-  return reasons.join(' · ');
+  return parts.join(' · ');
 }
 
 // ============================================
@@ -348,10 +522,16 @@ function getLayerType(item: ClothingItem): LayerType {
 }
 
 // 根据目标温度决定需要哪些层
-function getRequiredLayers(neededWarmth: number, weather: WeatherData): LayerType[] {
+function getRequiredLayers(neededWarmth: number, weather: WeatherData, scene: OutfitScene): LayerType[] {
   const layers: LayerType[] = ['base']; // 打底必须
   
-  if (neededWarmth > 4) {
+  // 通勤场景：温差>2度就需要两件（打底+外层）
+  // 跑步场景：体感<6度需要两件
+  const needsTwoLayers = scene === 'commute' 
+    ? neededWarmth > 2  // 通勤：目标22度，体感<20度就要两件
+    : neededWarmth > 6; // 跑步：体感<目标温度-6度就要两件
+  
+  if (needsTwoLayers) {
     layers.push('mid');
   }
   
@@ -372,7 +552,8 @@ function checkMandatoryRules(
   category: string,
   weather: WeatherData,
   scene: OutfitScene,
-  runType?: RunType
+  runType?: RunType,
+  effectiveTemp?: number
 ): boolean {
   // 规则1：通勤+下雨时，上衣必须是冲锋衣
   if (scene === 'commute' && weather.isRaining && category === 'top') {
@@ -382,6 +563,14 @@ function checkMandatoryRules(
   // 规则2：跑步+长距离时，裤子必须有口袋
   if (scene === 'running' && runType === 'long' && category === 'bottom') {
     return item.hasPockets === true;
+  }
+  
+  // 规则3：跑步场景+温度>5度时，下装不能是长裤（推荐短裤/半弹）
+  if (scene === 'running' && category === 'bottom' && effectiveTemp !== undefined) {
+    if (effectiveTemp > 5) {
+      // 5度以上，不能穿长裤
+      return item.subCategory !== 'pants';
+    }
   }
   
   return true;
@@ -414,25 +603,38 @@ function generateTopLayers(
   const outerLayers = tops.filter(t => getLayerType(t) === 'outer');
   
   // 确定需要哪些层
-  const requiredLayers = getRequiredLayers(targetWarmth, weather);
+  const requiredLayers = getRequiredLayers(targetWarmth, weather, scene);
   
   // 方案1：单层方案（只用一层）
-  for (const top of tops) {
-    const warmth = getItemWarmthContribution(top);
-    const score = scoreItem(top, targetWarmth, weather, scene, runType);
-    combinations.push({
-      layers: [top],
-      totalWarmth: warmth,
-      score,
-      layerTypes: [getLayerType(top)]
-    });
+  // 温差大时（目标保暖值 > 6），单层 base 层无法提供足够保暖，跳过
+  const allowSingleLayer = targetWarmth <= 6;
+  
+  if (allowSingleLayer) {
+    for (const top of tops) {
+      const layerType = getLayerType(top);
+      
+      // 所有场景下，mid 层（棉服、抓绒、卫衣）和 outer 层（冲锋衣、羽绒服）都不能单穿
+      // 必须有 base 层（T恤、长袖、背心）打底
+      if (layerType === 'mid' || layerType === 'outer') {
+        continue; // 跳过 mid 和 outer 单穿
+      }
+      
+      const warmth = getItemWarmthContribution(top);
+      const score = scoreItem(top, targetWarmth, weather, scene, runType);
+      combinations.push({
+        layers: [top],
+        totalWarmth: warmth,
+        score,
+        layerTypes: [layerType]
+      });
+    }
   }
   
   // 方案2：双层（打底+外层）
   if (requiredLayers.length >= 2) {
+    // 2a: 打底 + mid/outer
     for (const base of baseLayers) {
       for (const outer of [...midLayers, ...outerLayers]) {
-        // 避免选同一件
         if (base.id === outer.id) continue;
         
         const combinedWarmth = getItemWarmthContribution(base) + 
@@ -455,10 +657,63 @@ function generateTopLayers(
         });
       }
     }
+    
+    // 2b: 打底 + 打底（两件轻薄打底）
+    for (let i = 0; i < baseLayers.length; i++) {
+      for (let j = i + 1; j < baseLayers.length; j++) {
+        const base1 = baseLayers[i];
+        const base2 = baseLayers[j];
+        
+        const combinedWarmth = getItemWarmthContribution(base1) + 
+                               getItemWarmthContribution(base2) * 0.9;
+        
+        const score = scoreLayerCombination(
+          [base1, base2], 
+          ['base', 'base'],
+          targetWarmth, 
+          weather, 
+          scene, 
+          runType
+        );
+        
+        combinations.push({
+          layers: [base1, base2],
+          totalWarmth: combinedWarmth,
+          score: score - 5, // 双层打底略减分
+          layerTypes: ['base', 'base']
+        });
+      }
+    }
+    
+    // 2c: mid + outer（无打底，适合不太冷的情况）
+    for (const mid of midLayers) {
+      for (const outer of outerLayers) {
+        if (mid.id === outer.id) continue;
+        
+        const combinedWarmth = getItemWarmthContribution(mid) * 0.9 + 
+                               getItemWarmthContribution(outer) * 0.8;
+        
+        const score = scoreLayerCombination(
+          [mid, outer], 
+          ['mid', 'outer'],
+          targetWarmth, 
+          weather, 
+          scene, 
+          runType
+        );
+        
+        combinations.push({
+          layers: [mid, outer],
+          totalWarmth: combinedWarmth,
+          score: score - 10, // 无打底大幅减分
+          layerTypes: ['mid', 'outer']
+        });
+      }
+    }
   }
   
-  // 方案3：三层（打底+中间+外层）- 极寒天气
-  if (requiredLayers.length >= 3 && targetWarmth > 12) {
+  // 方案3：三层（打底+中间+外层）- 温差大时启用
+  if (requiredLayers.length >= 3 && targetWarmth > 6) {
     for (const base of baseLayers) {
       for (const mid of midLayers) {
         for (const outer of outerLayers) {
@@ -489,8 +744,19 @@ function generateTopLayers(
     }
   }
   
-  // 按分数排序
-  return combinations.sort((a, b) => b.score - b.score);
+  // 严格过滤：只保留 80%-120% 范围内的组合
+  const validCombinations = combinations.filter(c => {
+    const coverage = c.totalWarmth / targetWarmth;
+    return coverage >= 0.8 && coverage <= 1.2;
+  });
+  
+  // 如果有符合条件的组合，按分数排序返回
+  if (validCombinations.length > 0) {
+    return validCombinations.sort((a, b) => b.score - a.score);
+  }
+  
+  // 实在没有，返回所有组合（按分数排序，让用户自己调整）
+  return combinations.sort((a, b) => b.score - a.score);
 }
 
 // 评分分层组合
@@ -507,30 +773,148 @@ function scoreLayerCombination(
     return sum + getItemWarmthContribution(layer) * weight;
   }, 0);
   
-  // 保暖匹配度
+  // 保暖匹配度 - 温差越大扣分越多
   const warmthDiff = Math.abs(totalWarmth - targetWarmth);
-  let warmthScore = Math.max(0, 60 - warmthDiff * 4);
+  let warmthScore = Math.max(0, 80 - warmthDiff * 5);
   
-  // 刚好够暖有额外加分
-  if (totalWarmth >= targetWarmth * 0.9 && totalWarmth <= targetWarmth * 1.15) {
-    warmthScore += 15;
+  // 刚好够暖有额外加分（90%-110%最佳范围内）
+  const coverage = totalWarmth / targetWarmth;
+  if (coverage >= 0.9 && coverage <= 1.1) {
+    warmthScore += 30; // 最佳范围大幅加分
+  } else if (coverage >= 0.8 && coverage <= 1.2) {
+    warmthScore += 10; // 可接受范围小加分
+  }
+  
+  // 低于80%或高于120%要大幅扣分
+  if (coverage < 0.8 || coverage > 1.2) {
+    warmthScore -= 20;
+  }
+  
+  // 温差大时，多层组合有额外加成
+  if (targetWarmth > 8 && layers.length >= 2) {
+    warmthScore += 20; // 鼓励多层穿搭
   }
   
   // 各层单独评分平均
   const layerScores = layers.map((layer, idx) => {
-    const layerTarget = targetWarmth * [0.3, 0.4, 0.3][idx] || targetWarmth * 0.3;
+    const layerTarget = targetWarmth * [0.35, 0.5, 0.35][idx] || targetWarmth * 0.35;
     return scoreItem(layer, layerTarget, weather, scene, runType);
   });
   const avgLayerScore = layerScores.reduce((a, b) => a + b, 0) / layers.length;
   
   // 分层合理性加分
   let structureBonus = 0;
-  if (layerTypes[0] === 'base') structureBonus += 5;
+  if (layerTypes[0] === 'base') structureBonus += 10;
   if (layers.length >= 2 && (layerTypes[1] === 'mid' || layerTypes[1] === 'outer')) {
-    structureBonus += 5;
+    structureBonus += 15;
   }
   
   return warmthScore + avgLayerScore + structureBonus;
+}
+
+// ============================================
+// 高温兜底：选择最薄衣物
+// ============================================
+
+function generateMinimumWarmthOutfit(
+  wardrobe: {
+    tops: ClothingItem[];
+    bottoms: ClothingItem[];
+    socks: ClothingItem[];
+    shoes: ClothingItem[];
+    hats?: ClothingItem[];
+  },
+  weather: WeatherData,
+  scene: OutfitScene,
+  runType: RunType | undefined,
+  effectiveTemp: number
+): OutfitRecommendation & { layeredTops?: ClothingItem[] } {
+  // 过滤适合场景的衣物
+  const filteredTops = wardrobe.tops.filter(item => isItemSuitableForScene(item, scene));
+  const filteredBottoms = wardrobe.bottoms.filter(item => isItemSuitableForScene(item, scene));
+  const filteredSocks = wardrobe.socks.filter(item => isItemSuitableForScene(item, scene));
+  const filteredShoes = wardrobe.shoes.filter(item => isItemSuitableForScene(item, scene));
+  const filteredHats = wardrobe.hats?.filter(item => isItemSuitableForScene(item, scene));
+  
+  // 选择最薄的衣物（warmthLevel 最小）
+  const top = [...filteredTops].sort((a, b) => a.warmthLevel - b.warmthLevel)[0] || wardrobe.tops[0];
+  const bottom = [...filteredBottoms].sort((a, b) => a.warmthLevel - b.warmthLevel)[0] || wardrobe.bottoms[0];
+  const socks = [...filteredSocks].sort((a, b) => a.warmthLevel - b.warmthLevel)[0] || wardrobe.socks[0];
+  
+  // 鞋子选择透气性好的（跑步场景优先跑鞋）
+  const shoes = filteredShoes
+    .sort((a, b) => {
+      if (scene === 'running') {
+        // 优先跑步鞋
+        if (a.subCategory === 'running-shoes' && b.subCategory !== 'running-shoes') return -1;
+        if (b.subCategory === 'running-shoes' && a.subCategory !== 'running-shoes') return 1;
+      }
+      return a.warmthLevel - b.warmthLevel;
+    })[0] || wardrobe.shoes[0];
+  
+  // 炎热天气推荐遮阳帽
+  const hat = filteredHats?.length
+    ? filteredHats
+        .sort((a, b) => {
+          // 优先夏季帽子/空顶帽
+          if (a.subCategory === 'summer-hat') return -1;
+          if (b.subCategory === 'summer-hat') return 1;
+          return a.warmthLevel - b.warmthLevel;
+        })[0]
+    : undefined;
+  
+  // 生成天气提示
+  const weatherTips = [
+    '天气炎热，建议晨跑或夜跑避开高温',
+    '注意补水和防晒',
+    ...generateWeatherTips(weather)
+  ];
+  
+  const reasoningData = generateReasoningData(
+    weather, 
+    scene, 
+    runType, 
+    effectiveTemp, 
+    0, 
+    0,
+    ['base'],
+    true  // isExtremeHeat
+  );
+  
+  const reasoning = generateReasoning(
+    weather, 
+    scene, 
+    runType, 
+    effectiveTemp, 
+    0, 
+    0,
+    ['base'],
+    true
+  );
+  
+  return {
+    outfit: {
+      top: top!,
+      bottom: bottom!,
+      socks: socks!,
+      shoes: shoes!,
+      hat,
+      scene,
+      runType,
+      weatherSnapshot: weather,
+    },
+    reasoning,
+    reasoningData,
+    weatherTips,
+    alternatives: {
+      top: [],
+      bottom: [],
+      socks: [],
+      shoes: [],
+      hat: [],
+    },
+    layeredTops: undefined,
+  };
 }
 
 // ============================================
@@ -549,16 +933,22 @@ export function generateRecommendation(
   preferences: UserPreferences,
   scene: OutfitScene,
   runType?: RunType,
-  excludeItems?: { topId?: string; bottomId?: string; socksId?: string; shoesId?: string }
+  excludeItems?: { topId?: string; bottomId?: string; socksId?: string; shoesId?: string },
+  combinationIndex: number = 0
 ): OutfitRecommendation & { layeredTops?: ClothingItem[] } {
-  // 计算需要的保暖值
-  const effectiveTemp = calculateEffectiveTemp(weather, scene, runType);
-  const neededWarmth = calculateTargetWarmth(weather, scene, runType);
+  // 计算需要的保暖值（核心温度）
+  const { 
+    neededWarmth, 
+    effectiveTemp, 
+    targetTemp,
+    isExtremeHeat,
+    tempRange 
+  } = calculateTargetWarmth(weather, scene, runType);
   
-  // 按部位分配目标保暖值
-  const topTargetWarmth = neededWarmth * 0.6;
-  const bottomTargetWarmth = neededWarmth * 0.3;
-  const socksTargetWarmth = neededWarmth * 0.1;
+  // 高温兜底：选择最薄的衣物
+  if (isExtremeHeat) {
+    return generateMinimumWarmthOutfit(wardrobe, weather, scene, runType, effectiveTemp);
+  }
   
   // 过滤适合场景的物品
   let filteredTops = wardrobe.tops.filter(item => isItemSuitableForScene(item, scene));
@@ -567,12 +957,23 @@ export function generateRecommendation(
   const filteredShoes = wardrobe.shoes.filter(item => isItemSuitableForScene(item, scene));
   const filteredHats = wardrobe.hats?.filter(item => isItemSuitableForScene(item, scene));
   
+  // 检查上衣是否有足够的保暖选择（mid/outer层）
+  const hasWarmLayers = filteredTops.some(t => {
+    const layerType = getLayerType(t);
+    return layerType === 'mid' || layerType === 'outer';
+  });
+  
+  // 如果需要保暖（温度低）且场景过滤后没有保暖层，回退到全部上衣
+  if (neededWarmth > 8 && !hasWarmLayers) {
+    filteredTops = wardrobe.tops;
+  }
+  
   // 应用强制规则
   const mandatoryTops = filteredTops.filter(item => 
-    checkMandatoryRules(item, 'top', weather, scene, runType)
+    checkMandatoryRules(item, 'top', weather, scene, runType, effectiveTemp)
   );
   const mandatoryBottoms = filteredBottoms.filter(item => 
-    checkMandatoryRules(item, 'bottom', weather, scene, runType)
+    checkMandatoryRules(item, 'bottom', weather, scene, runType, effectiveTemp)
   );
   
   // 如果有满足强制规则的，优先使用；否则回退
@@ -606,31 +1007,66 @@ export function generateRecommendation(
   const socksToRecommend = socksForRecommendation.length > 0 ? socksForRecommendation : finalSocks;
   const shoesToRecommend = shoesForRecommendation.length > 0 ? shoesForRecommendation : finalShoes;
   
-  // 使用多层算法选择上衣
-  const layeredTopOptions = generateTopLayers(topsToRecommend, topTargetWarmth, weather, scene, runType);
-  const bestTopCombination = layeredTopOptions[0];
-  
-  // 如果有多层，选择最外层作为主显示
-  const mainTop = bestTopCombination.layers[bestTopCombination.layers.length - 1];
-  
-  // 其他部位评分排序
-  const scoredBottoms = bottomsToRecommend
-    .map(item => ({ item, score: scoreItem(item, bottomTargetWarmth, weather, scene, runType) }))
-    .sort((a, b) => b.score - a.score);
-  
-  const scoredSocks = socksToRecommend
-    .map(item => ({ item, score: scoreItem(item, socksTargetWarmth, weather, scene, runType) }))
-    .sort((a, b) => b.score - a.score);
-  
-  const scoredShoes = shoesToRecommend
-    .map(item => ({ item, score: scoreItem(item, 0, weather, scene, runType) }))
-    .sort((a, b) => b.score - a.score);
-  
+  // 核心保暖：上衣（可能多层）+ 帽子 要匹配 neededWarmth
+  // 先生成帽子候选（因为帽子保暖值需要计入核心保暖）
   const scoredHats = finalHats && finalHats.length > 0
     ? finalHats
         .map(item => ({ item, score: scoreHat(item, weather, effectiveTemp) }))
         .sort((a, b) => b.score - a.score)
     : [];
+  
+  // 计算帽子提供的保暖值（选择最佳帽子）
+  const bestHat = scoredHats[0]?.item;
+  const hatWarmthContribution = bestHat ? getItemWarmthContribution(bestHat) : 0;
+  
+  // 上衣需要提供的保暖值 = 核心保暖 - 帽子保暖
+  const topTargetWarmth = Math.max(0, neededWarmth - hatWarmthContribution);
+  
+  // 使用多层算法选择上衣 - 支持多个组合轮换
+  const layeredTopOptions = generateTopLayers(topsToRecommend, topTargetWarmth, weather, scene, runType);
+  
+  // 去重：基于每层类型和保暖值的组合签名去重
+  const seenSignatures = new Set<string>();
+  const uniqueOptions = layeredTopOptions.filter(opt => {
+    const signature = opt.layers.map(l => `${getLayerType(l)}-${l.warmthLevel}`).sort().join(',');
+    if (seenSignatures.has(signature)) return false;
+    seenSignatures.add(signature);
+    return true;
+  });
+  
+  // 循环选择组合
+  const selectedIndex = uniqueOptions.length > 0 ? (combinationIndex % uniqueOptions.length) : 0;
+  const bestTopCombination = uniqueOptions[selectedIndex] || uniqueOptions[0] || { layers: [], totalWarmth: 0, score: 0, layerTypes: [] };
+  const mainTop = bestTopCombination.layers[bestTopCombination.layers.length - 1];
+  
+  // 其他部位根据场景选择
+  // 通勤场景：温度<6度时，袜子、鞋子、裤子都要保暖值>=7
+  // 跑步场景：鞋子、袜子不考虑保暖值，裤子已有强制规则
+  const isCold = effectiveTemp < 6;
+  
+  // 下装选择
+  const scoredBottoms = bottomsToRecommend
+    .map(item => ({ 
+      item, 
+      score: scoreBottom(item, isCold, effectiveTemp, scene) 
+    }))
+    .sort((a, b) => b.score - a.score);
+  
+  // 袜子选择
+  const scoredSocks = socksToRecommend
+    .map(item => ({ 
+      item, 
+      score: scoreSocks(item, isCold, scene) 
+    }))
+    .sort((a, b) => b.score - a.score);
+  
+  // 鞋子选择
+  const scoredShoes = shoesToRecommend
+    .map(item => ({ 
+      item, 
+      score: scoreShoes(item, isCold, scene, weather) 
+    }))
+    .sort((a, b) => b.score - a.score);
   
   // 选择各部位最佳
   const top = mainTop;
@@ -643,25 +1079,34 @@ export function generateRecommendation(
   const shouldRecommendHat = effectiveTemp < 8 || effectiveTemp > 30 || weather.isRaining;
   const hat = shouldRecommendHat && scoredHats.length > 0 ? scoredHats[0].item : undefined;
   
-  // 计算实际保暖值（包含多层上衣）
-  const outfitWarmth = calculateOutfitWarmth({
-    top: top!,
-    bottom: bottom!,
-    socks: socks!,
-    shoes: shoes!,
-    hat,
-  }) + (layeredTops ? bestTopCombination.totalWarmth - getItemWarmthContribution(top!) : 0);
+  // 计算实际保暖值（核心保暖：上衣+帽子，与 neededWarmth 对应）
+  const coreWarmth = getItemWarmthContribution(top!) + 
+    (layeredTops ? bestTopCombination.totalWarmth - getItemWarmthContribution(top!) : 0) +
+    (hat ? getItemWarmthContribution(hat) : 0);
   
   // 生成提示和理由
   const weatherTips = generateWeatherTips(weather);
+  const reasoningData = generateReasoningData(
+    weather, 
+    scene, 
+    runType, 
+    effectiveTemp, 
+    coreWarmth, 
+    neededWarmth,
+    bestTopCombination.layerTypes,
+    isExtremeHeat,
+    tempRange
+  );
   const reasoning = generateReasoning(
     weather, 
     scene, 
     runType, 
     effectiveTemp, 
-    outfitWarmth, 
+    coreWarmth, 
     neededWarmth,
-    bestTopCombination.layerTypes
+    bestTopCombination.layerTypes,
+    isExtremeHeat,
+    tempRange
   );
   
   // 多层时不显示单层备选，避免混淆
@@ -679,6 +1124,7 @@ export function generateRecommendation(
       weatherSnapshot: weather,
     },
     reasoning,
+    reasoningData,
     weatherTips,
     alternatives: {
       top: topAlternatives,
@@ -687,6 +1133,6 @@ export function generateRecommendation(
       shoes: scoredShoes.slice(1, 4).map(s => s.item),
       hat: scoredHats.slice(1, 4).map(s => s.item),
     },
-    layeredTops, // 新增：多层上衣详情
+    layeredTops,
   };
 }

@@ -8,7 +8,8 @@
     "tempLow": "低",
     "humidity": "湿度",
     "windSpeed": "风速",
-    "feelsLike": "体感"
+    "feelsLike": "体感",
+    "cloudy": "多云"
   },
   "scene": {
     "commute": "通勤",
@@ -28,6 +29,16 @@
     "emptyWardrobeDesc": "先去「设置」页面录入你的衣服，我就能为你推荐穿搭了",
     "select": "选择",
     "todayOutfit": "今日穿搭",
+    "addLayer": "添加上衣层",
+    "addAsOuter": "添加为外层",
+    "pleaseAddClothes": "请先添加衣物",
+    "needCompleteWardrobe": "需要至少一件上衣、下装、袜子和鞋子",
+    "change": "更换",
+    "topMatching": "上衣搭配",
+    "layers": "层",
+    "innerLayer": "内层",
+    "middleLayer": "中层",
+    "outerLayer": "外层",
     "tips": {
       "highWind": "今日风较大，注意防风",
       "wind": "有风，建议备件防风外套",
@@ -35,7 +46,21 @@
       "lowHumidity": "空气干燥，及时补水",
       "lightRain": "下小雨，路面湿滑注意安全",
       "moderateRain": "下中雨，建议室内或延期",
-      "heavyRain": "下大雨，不建议户外跑步"
+      "heavyRain": "下大雨，不建议户外跑步",
+      "cold": "体感较冷，注意保暖",
+      "cool": "体感偏凉，适当添衣",
+      "hot": "体感较热，注意补水",
+      "extremeHeat": "体感炎热，避免中暑"
+    },
+    "reasoning": {
+      "layers": "{{count}}层({{layers}})",
+      "coverage": "保暖{{coverage}}%",
+      "target": "{{scene}}，目标 {{temp}}°C",
+      "rain": "雨天优先防水",
+      "extremeHeat": "天气炎热，建议轻量透气",
+      "layerBase": "打底",
+      "layerMid": "中间",
+      "layerOuter": "外层"
     }
   },
   "runType": {
@@ -58,7 +83,14 @@
     "light": "浅色",
     "dark": "深色",
     "language": "语言",
-    "save": "保存设置"
+    "save": "保存设置",
+    "account": "账户",
+    "user": "用户",
+    "synced": "数据已同步到云端",
+    "login": "登录",
+    "register": "注册",
+    "logout": "退出",
+    "guestDescription": "当前为访客模式，数据仅保存在当前设备。登录后可同步数据到云端。"
   },
   "types": {
     "t-shirt": "T恤",
@@ -90,5 +122,16 @@
   "status": {
     "locating": "定位中...",
     "noHistory": "还没有穿搭记录"
+  },
+  "common": {
+    "loading": "加载中"
+  },
+  "tags": {
+    "running": "跑步",
+    "commute": "通勤",
+    "both": "皆可",
+    "water": "防水",
+    "wind": "防风",
+    "pocket": "口袋"
   }
 }

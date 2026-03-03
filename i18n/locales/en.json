@@ -8,7 +8,8 @@
     "tempLow": "L",
     "humidity": "Humidity",
     "windSpeed": "Wind",
-    "feelsLike": "Feels like"
+    "feelsLike": "Feels like",
+    "cloudy": "Cloudy"
   },
   "scene": {
     "commute": "Commute",
@@ -28,6 +29,16 @@
     "emptyWardrobeDesc": "Go to Settings to add your clothes first",
     "select": "Select",
     "todayOutfit": "Today's Outfit",
+    "addLayer": "Add Layer",
+    "addAsOuter": "Add as outer",
+    "pleaseAddClothes": "Please add clothes first",
+    "needCompleteWardrobe": "Need at least one top, bottom, socks and shoes",
+    "change": "Change",
+    "topMatching": "Top Match",
+    "layers": "Layers",
+    "innerLayer": "Inner",
+    "middleLayer": "Mid",
+    "outerLayer": "Outer",
     "tips": {
       "highWind": "High wind today, stay protected",
       "wind": "Windy, bring a windbreaker",
@@ -35,7 +46,21 @@
       "lowHumidity": "Dry air, stay hydrated",
       "lightRain": "Light rain, watch your step",
       "moderateRain": "Moderate rain, consider indoor run",
-      "heavyRain": "Heavy rain, not recommended for outdoor"
+      "heavyRain": "Heavy rain, not recommended for outdoor",
+      "cold": "Feels cold, stay warm",
+      "cool": "Feels cool, dress in layers",
+      "hot": "Feels hot, stay hydrated",
+      "extremeHeat": "Feels very hot, avoid heatstroke"
+    },
+    "reasoning": {
+      "layers": "{{count}} layers({{layers}})",
+      "coverage": "{{coverage}}% warmth",
+      "target": "{{scene}}, target {{temp}}°C",
+      "rain": "Waterproof priority",
+      "extremeHeat": "Extreme heat, lightweight recommended",
+      "layerBase": "Base",
+      "layerMid": "Mid",
+      "layerOuter": "Outer"
     }
   },
   "runType": {
@@ -58,7 +83,14 @@
     "light": "Light",
     "dark": "Dark",
     "language": "Language",
-    "save": "Save"
+    "save": "Save",
+    "account": "Account",
+    "user": "User",
+    "synced": "Data synced to cloud",
+    "login": "Login",
+    "register": "Register",
+    "logout": "Logout",
+    "guestDescription": "Guest mode: data stored locally. Login to sync to cloud."
   },
   "types": {
     "t-shirt": "T-Shirt",
@@ -90,5 +122,16 @@
   "status": {
     "locating": "Locating...",
     "noHistory": "No outfit history yet"
+  },
+  "common": {
+    "loading": "Loading"
+  },
+  "tags": {
+    "running": "Running",
+    "commute": "Commute",
+    "both": "Both",
+    "water": "Water",
+    "wind": "Wind",
+    "pocket": "Pocket"
   }
 }
