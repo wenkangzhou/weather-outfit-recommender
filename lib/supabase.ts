@@ -79,6 +79,7 @@ interface ClothingItemRow {
   created_at: string;
   user_id?: string;
   temp_user_id?: string;
+  is_virtual?: boolean;
 }
 
 interface UserPreferencesRow {
@@ -130,6 +131,9 @@ export async function getClothingItems(): Promise<ClothingItem[]> {
     query = query.eq('temp_user_id', tempUserId);
   }
   
+  // 数据库没有 is_virtual 列，查询时排除
+  query = query.select('id,name,category,sub_category,warmth_level,water_resistant,wind_resistant,usage,has_pockets,color,image_url,created_at,user_id,temp_user_id');
+  
   const { data, error } = await query;
   
   if (error) {
@@ -152,6 +156,8 @@ export async function getClothingItems(): Promise<ClothingItem[]> {
     color: item.color,
     imageUrl: item.image_url,
     createdAt: item.created_at,
+    // 数据库没有 is_virtual 列，默认 false
+    isVirtual: false,
   }));
 }
 
@@ -180,6 +186,7 @@ export async function addClothingItem(item: Omit<ClothingItem, 'id' | 'createdAt
     color: item.color,
     image_url: item.imageUrl,
     created_at: new Date().toISOString(),
+    // 注意：数据库没有 is_virtual 列，不发送该字段
   };
   
   // 添加用户标识
@@ -216,6 +223,8 @@ export async function addClothingItem(item: Omit<ClothingItem, 'id' | 'createdAt
     color: record.color,
     imageUrl: record.image_url,
     createdAt: record.created_at,
+    // 数据库没有 is_virtual 列，默认 false
+    isVirtual: false,
   };
 }
 
@@ -246,6 +255,7 @@ export async function updateClothingItem(
   if (updates.usage !== undefined) dbUpdates.usage = updates.usage;
   if (updates.hasPockets !== undefined) dbUpdates.has_pockets = updates.hasPockets;
   if (updates.color !== undefined) dbUpdates.color = updates.color;
+  // 注意：数据库没有 is_virtual 列，不更新该字段
   
   let query = supabase
     .from('clothing_items')
@@ -279,6 +289,7 @@ export async function updateClothingItem(
     color: record.color,
     imageUrl: record.image_url,
     createdAt: record.created_at,
+    isVirtual: record.is_virtual || false,
   };
 }
 

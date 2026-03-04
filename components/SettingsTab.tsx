@@ -58,6 +58,15 @@ export default function SettingsTab() {
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
+  
+  // 监听衣柜变化事件（从 OutfitTab 添加衣物后刷新）
+  useEffect(() => {
+    const handleWardrobeChange = () => {
+      loadData(false);
+    };
+    window.addEventListener('wardrobe-changed', handleWardrobeChange);
+    return () => window.removeEventListener('wardrobe-changed', handleWardrobeChange);
+  }, []);
 
   const loadData = async (showLoading = false) => {
     // 只有明确需要时才显示 loading，避免 tab 切换时闪烁
@@ -163,6 +172,8 @@ export default function SettingsTab() {
                     await logoutUser();
                     setUserStatus('guest');
                     setUserDisplay('');
+                    // 登出后刷新数据（回到游客状态）
+                    loadData(true);
                   }}
                 >
                   {t('settings.logout')}
@@ -297,6 +308,8 @@ export default function SettingsTab() {
         setUserStatus('registered');
         const info = getUserInfo();
         setUserDisplay(info.display);
+        // 登录成功后刷新数据（同步服务器数据）
+        loadData(true);
       }} />}
     </div>
   );

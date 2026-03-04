@@ -23,9 +23,10 @@ export interface ClothingItem {
   windResistant: boolean;
   usage: 'commute' | 'running' | 'both'; // 通勤、跑步、两者皆可
   hasPockets?: boolean; // 是否有口袋（用于长距离放能量胶）
-  color: string;
+  color?: string; // 可选，示例衣物可能没有
   imageUrl?: string;
   createdAt: string;
+  isVirtual?: boolean; // 是否为示例/虚拟衣物
 }
 
 // Weather types
@@ -137,4 +138,5 @@ export interface OutfitRecommendation {
     hat?: ClothingItem[];
   };
   layeredTops?: ClothingItem[]; // 多层上衣（如打底+外套）
+  hasVirtualItems?: boolean; // 是否包含示例/虚拟衣物
 }

@@ -13,6 +13,7 @@ interface ClothingCardProps {
   onAdd?: () => void;
   labelBadgeColor?: string; // 标签颜色类名
   deletable?: boolean; // 是否可删除（用于帽子等可选物品）
+  onAddToWardrobe?: () => void; // 添加虚拟衣物到衣柜
 }
 
 export default function ClothingCard({ 
@@ -24,7 +25,8 @@ export default function ClothingCard({
   showAdd = false,
   onAdd,
   labelBadgeColor,
-  deletable = false
+  deletable = false,
+  onAddToWardrobe
 }: ClothingCardProps) {
   const { t } = useTranslation();
   
@@ -52,22 +54,13 @@ export default function ClothingCard({
   }
 
   return (
-    <div className="group relative flex items-center gap-4 p-4 bg-card border border-border rounded-xl hover:border-border/80 transition-all min-h-[72px]">
-      {/* 删除按钮 - 绝对定位右上角 */}
-      {deletable && onDelete && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete();
-          }}
-          className="absolute -top-2 -right-2 w-6 h-6 flex items-center justify-center bg-background border border-border rounded-full text-muted-foreground hover:text-destructive hover:border-destructive shadow-sm transition-all opacity-0 group-hover:opacity-100 z-10"
-          title="删除"
-        >
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 4L4 12M4 4L12 12" />
-          </svg>
-        </button>
-      )}
+    <div className={`relative flex items-center gap-4 p-4 border rounded-xl transition-all min-h-[72px] ${
+      item.isVirtual 
+        ? 'bg-slate-50 dark:bg-slate-900/30 border-dashed border-slate-300 dark:border-slate-700' 
+        : 'bg-card border-border hover:border-border/80'
+    }`}>
+      {/* 删除按钮 - 与更换/添加按钮放在同一行，而不是绝对定位 */}
+      {/* 移到按钮区域统一处理 */}
 
       {/* Icon */}
       <span className="text-2xl shrink-0">{icon}</span>
@@ -93,6 +86,13 @@ export default function ClothingCard({
             {t(`types.${item.subCategory}`)}
           </span>
           
+          {/* 虚拟衣物标识 */}
+          {item.isVirtual && (
+            <span className="text-[10px] px-1.5 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded font-medium">
+              平台推荐
+            </span>
+          )}
+          
           {/* 标签 */}
           {item.usage === 'running' && (
             <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded">{t('tags.running')}</span>
@@ -115,18 +115,50 @@ export default function ClothingCard({
         </div>
       </div>
 
-      {/* 更换按钮 - 和其他部位保持一致的位置 */}
-      {onReplace && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onReplace();
-          }}
-          className="px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground bg-muted hover:bg-muted/80 rounded-lg transition-colors shrink-0"
-        >
-          {t('outfit.change')}
-        </button>
-      )}
+      {/* 按钮区域 */}
+      <div className="flex items-center gap-2 shrink-0">
+        {item.isVirtual ? (
+          // 虚拟衣物：添加到衣柜按钮（橙色主题）
+          onAddToWardrobe && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddToWardrobe();
+              }}
+              className="px-3 py-1.5 text-xs text-orange-600 hover:text-orange-700 bg-orange-50 hover:bg-orange-100 dark:bg-orange-900/20 dark:hover:bg-orange-900/30 rounded-lg transition-colors font-medium"
+            >
+              添加到衣柜
+            </button>
+          )
+        ) : (
+          // 真实衣物：更换按钮
+          onReplace && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onReplace();
+              }}
+              className="px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground bg-muted hover:bg-muted/80 rounded-lg transition-colors"
+            >
+              {t('outfit.change')}
+            </button>
+          )
+        )}
+        
+        {/* 删除按钮 - 与更换按钮并排显示（如帽子） */}
+        {deletable && onDelete && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            className="px-3 py-1.5 text-xs text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 rounded-lg transition-colors font-medium"
+            title="删除"
+          >
+            删除
+          </button>
+        )}
+      </div>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import {
   UserPreferences,
   RunType 
 } from '@/types';
+import { demoWardrobe } from './demo-wardrobe';
 
 // ============================================
 // 活动强度温度配置
@@ -191,6 +192,11 @@ function scoreItem(
 ): number {
   let score = 0;
   
+  // 用户自己的衣物优先（非虚拟衣物获得额外加分）
+  if (!item.isVirtual) {
+    score += 25; // 用户衣物优先得分
+  }
+  
   // 场景匹配度（基础分）
   if (item.usage === 'both') {
     score += 5;
@@ -273,7 +279,8 @@ function scoreBottom(
   item: ClothingItem,
   isCold: boolean,
   effectiveTemp: number,
-  scene: OutfitScene
+  scene: OutfitScene,
+  neededWarmth?: number
 ): number {
   let score = 0;
   
@@ -284,8 +291,12 @@ function scoreBottom(
     score += 20;
   }
   
-  // 寒冷天气（通勤场景）：优先保暖值>=7的
-  if (isCold && scene === 'commute') {
+  // 根据保暖需求评分（neededWarmth > 10 表示需要高保暖）
+  if (neededWarmth && neededWarmth > 10) {
+    // 高保暖需求：优先保暖值高的
+    score += item.warmthLevel * 10;
+  } else if (isCold && scene === 'commute') {
+    // 寒冷天气（通勤场景）：优先保暖值>=7的
     if (item.warmthLevel >= 7) score += 50;
     else score -= 30;
   }
@@ -755,8 +766,21 @@ function generateTopLayers(
     return validCombinations.sort((a, b) => b.score - a.score);
   }
   
-  // 实在没有，返回所有组合（按分数排序，让用户自己调整）
-  return combinations.sort((a, b) => b.score - a.score);
+  // 没有80-120%的组合时，找最接近的（优先偏暖）
+  // 按与100%的差距排序，优先选择保暖值更高的（避免太冷）
+  const sortedByCoverage = combinations
+    .map(c => ({ ...c, coverage: c.totalWarmth / targetWarmth }))
+    .sort((a, b) => {
+      // 优先选择 >=80% 的，其次是接近80%的
+      const aValid = a.coverage >= 0.8;
+      const bValid = b.coverage >= 0.8;
+      if (aValid && !bValid) return -1;
+      if (!aValid && bValid) return 1;
+      // 都有效或都无效时，按与目标差距排序
+      return Math.abs(a.coverage - 1) - Math.abs(b.coverage - 1);
+    });
+  
+  return sortedByCoverage;
 }
 
 // 评分分层组合
@@ -830,16 +854,31 @@ function generateMinimumWarmthOutfit(
   effectiveTemp: number
 ): OutfitRecommendation & { layeredTops?: ClothingItem[] } {
   // 过滤适合场景的衣物
-  const filteredTops = wardrobe.tops.filter(item => isItemSuitableForScene(item, scene));
-  const filteredBottoms = wardrobe.bottoms.filter(item => isItemSuitableForScene(item, scene));
-  const filteredSocks = wardrobe.socks.filter(item => isItemSuitableForScene(item, scene));
-  const filteredShoes = wardrobe.shoes.filter(item => isItemSuitableForScene(item, scene));
-  const filteredHats = wardrobe.hats?.filter(item => isItemSuitableForScene(item, scene));
+  let filteredTops = wardrobe.tops.filter(item => isItemSuitableForScene(item, scene));
+  let filteredBottoms = wardrobe.bottoms.filter(item => isItemSuitableForScene(item, scene));
+  let filteredSocks = wardrobe.socks.filter(item => isItemSuitableForScene(item, scene));
+  let filteredShoes = wardrobe.shoes.filter(item => isItemSuitableForScene(item, scene));
+  let filteredHats = wardrobe.hats?.filter(item => isItemSuitableForScene(item, scene));
+  
+  // 检查是否使用示例衣物
+  const useDemoTops = filteredTops.length === 0;
+  const useDemoBottoms = filteredBottoms.length === 0;
+  const useDemoSocks = filteredSocks.length === 0;
+  const useDemoShoes = filteredShoes.length === 0;
+  const useDemoHats = !filteredHats || filteredHats.length === 0;
+  const hasVirtualItems = useDemoTops || useDemoBottoms || useDemoSocks || useDemoShoes || useDemoHats;
+  
+  // 混入示例衣物 - 高温时使用全部示例衣物（优先轻薄）
+  if (useDemoTops) filteredTops = demoWardrobe.tops;
+  if (useDemoBottoms) filteredBottoms = demoWardrobe.bottoms;
+  if (useDemoSocks) filteredSocks = demoWardrobe.socks;
+  if (useDemoShoes) filteredShoes = demoWardrobe.shoes;
+  if (useDemoHats) filteredHats = demoWardrobe.hats;
   
   // 选择最薄的衣物（warmthLevel 最小）
-  const top = [...filteredTops].sort((a, b) => a.warmthLevel - b.warmthLevel)[0] || wardrobe.tops[0];
-  const bottom = [...filteredBottoms].sort((a, b) => a.warmthLevel - b.warmthLevel)[0] || wardrobe.bottoms[0];
-  const socks = [...filteredSocks].sort((a, b) => a.warmthLevel - b.warmthLevel)[0] || wardrobe.socks[0];
+  const top = [...filteredTops].sort((a, b) => a.warmthLevel - b.warmthLevel)[0]!;
+  const bottom = [...filteredBottoms].sort((a, b) => a.warmthLevel - b.warmthLevel)[0]!;
+  const socks = [...filteredSocks].sort((a, b) => a.warmthLevel - b.warmthLevel)[0]!;
   
   // 鞋子选择透气性好的（跑步场景优先跑鞋）
   const shoes = filteredShoes
@@ -850,7 +889,7 @@ function generateMinimumWarmthOutfit(
         if (b.subCategory === 'running-shoes' && a.subCategory !== 'running-shoes') return 1;
       }
       return a.warmthLevel - b.warmthLevel;
-    })[0] || wardrobe.shoes[0];
+    })[0]!;
   
   // 炎热天气推荐遮阳帽
   const hat = filteredHats?.length
@@ -914,6 +953,7 @@ function generateMinimumWarmthOutfit(
       hat: [],
     },
     layeredTops: undefined,
+    hasVirtualItems,
   };
 }
 
@@ -950,12 +990,51 @@ export function generateRecommendation(
     return generateMinimumWarmthOutfit(wardrobe, weather, scene, runType, effectiveTemp);
   }
   
-  // 过滤适合场景的物品
-  let filteredTops = wardrobe.tops.filter(item => isItemSuitableForScene(item, scene));
-  let filteredBottoms = wardrobe.bottoms.filter(item => isItemSuitableForScene(item, scene));
-  const filteredSocks = wardrobe.socks.filter(item => isItemSuitableForScene(item, scene));
-  const filteredShoes = wardrobe.shoes.filter(item => isItemSuitableForScene(item, scene));
-  const filteredHats = wardrobe.hats?.filter(item => isItemSuitableForScene(item, scene));
+  // 过滤适合场景的物品 - 用户衣物优先
+  let userTops = wardrobe.tops.filter(item => isItemSuitableForScene(item, scene));
+  let userBottoms = wardrobe.bottoms.filter(item => isItemSuitableForScene(item, scene));
+  let userSocks = wardrobe.socks.filter(item => isItemSuitableForScene(item, scene));
+  let userShoes = wardrobe.shoes.filter(item => isItemSuitableForScene(item, scene));
+  let userHats = wardrobe.hats?.filter(item => isItemSuitableForScene(item, scene));
+  
+  // 检查是否使用示例衣物（当用户衣柜为空时）
+  const useDemoTops = userTops.length === 0;
+  const useDemoBottoms = userBottoms.length === 0;
+  const useDemoSocks = userSocks.length === 0;
+  const useDemoShoes = userShoes.length === 0;
+  const useDemoHats = !userHats || userHats.length === 0;
+  
+  // 标记是否有使用示例衣物（用于UI展示）
+  const hasVirtualItems = useDemoTops || useDemoBottoms || useDemoSocks || useDemoShoes || useDemoHats;
+  
+  // 根据保暖需求决定过滤策略
+  // 高保暖需求时：使用全部示例衣物（忽略场景，优先保暖）
+  // 低保暖需求时：按场景过滤
+  const needHighWarmth = neededWarmth > 10;
+  
+  const demoTopsFiltered = needHighWarmth 
+    ? demoWardrobe.tops 
+    : demoWardrobe.tops.filter(item => isItemSuitableForScene(item, scene));
+  const demoBottomsFiltered = needHighWarmth 
+    ? demoWardrobe.bottoms 
+    : demoWardrobe.bottoms.filter(item => isItemSuitableForScene(item, scene));
+  const demoSocksFiltered = needHighWarmth 
+    ? demoWardrobe.socks 
+    : demoWardrobe.socks.filter(item => isItemSuitableForScene(item, scene));
+  const demoShoesFiltered = needHighWarmth 
+    ? demoWardrobe.shoes 
+    : demoWardrobe.shoes.filter(item => isItemSuitableForScene(item, scene));
+  const demoHatsFiltered = needHighWarmth 
+    ? demoWardrobe.hats 
+    : demoWardrobe.hats.filter(item => isItemSuitableForScene(item, scene));
+  
+  // 优先使用用户衣物，不够的补充虚拟衣物
+  // 策略：用户衣物 + 虚拟衣物，但让算法优先选择用户衣物（通过评分实现）
+  let filteredTops = [...userTops, ...demoTopsFiltered];
+  let filteredBottoms = [...userBottoms, ...demoBottomsFiltered];
+  let filteredSocks = [...userSocks, ...demoSocksFiltered];
+  let filteredShoes = [...userShoes, ...demoShoesFiltered];
+  let filteredHats = userHats ? [...userHats, ...demoHatsFiltered] : demoHatsFiltered;
   
   // 检查上衣是否有足够的保暖选择（mid/outer层）
   const hasWarmLayers = filteredTops.some(t => {
@@ -963,9 +1042,9 @@ export function generateRecommendation(
     return layerType === 'mid' || layerType === 'outer';
   });
   
-  // 如果需要保暖（温度低）且场景过滤后没有保暖层，回退到全部上衣
+  // 如果需要保暖（温度低）且过滤后没有保暖层，回退到全部上衣
   if (neededWarmth > 8 && !hasWarmLayers) {
-    filteredTops = wardrobe.tops;
+    filteredTops = useDemoTops ? demoWardrobe.tops : wardrobe.tops;
   }
   
   // 应用强制规则
@@ -980,12 +1059,12 @@ export function generateRecommendation(
   const topsToUse = mandatoryTops.length > 0 ? mandatoryTops : filteredTops;
   const bottomsToUse = mandatoryBottoms.length > 0 ? mandatoryBottoms : filteredBottoms;
   
-  // 如果过滤后为空，回退到全部
-  const finalTops = topsToUse.length > 0 ? topsToUse : wardrobe.tops;
-  const finalBottoms = bottomsToUse.length > 0 ? bottomsToUse : wardrobe.bottoms;
-  const finalSocks = filteredSocks.length > 0 ? filteredSocks : wardrobe.socks;
-  const finalShoes = filteredShoes.length > 0 ? filteredShoes : wardrobe.shoes;
-  const finalHats = filteredHats && filteredHats.length > 0 ? filteredHats : wardrobe.hats;
+  // 如果过滤后为空，回退到全部（使用示例衣物时回退到示例库）
+  const finalTops = topsToUse.length > 0 ? topsToUse : (useDemoTops ? demoWardrobe.tops : wardrobe.tops);
+  const finalBottoms = bottomsToUse.length > 0 ? bottomsToUse : (useDemoBottoms ? demoWardrobe.bottoms : wardrobe.bottoms);
+  const finalSocks = filteredSocks.length > 0 ? filteredSocks : (useDemoSocks ? demoWardrobe.socks : wardrobe.socks);
+  const finalShoes = filteredShoes.length > 0 ? filteredShoes : (useDemoShoes ? demoWardrobe.shoes : wardrobe.shoes);
+  const finalHats = filteredHats && filteredHats.length > 0 ? filteredHats : (useDemoHats ? demoWardrobe.hats : wardrobe.hats);
   
   // 排除已推荐的物品
   const topsForRecommendation = excludeItems?.topId 
@@ -1039,6 +1118,12 @@ export function generateRecommendation(
   const bestTopCombination = uniqueOptions[selectedIndex] || uniqueOptions[0] || { layers: [], totalWarmth: 0, score: 0, layerTypes: [] };
   const mainTop = bestTopCombination.layers[bestTopCombination.layers.length - 1];
   
+  // 如果多层算法没有返回结果，从可用上衣中选择一个
+  const fallbackTop = !mainTop && topsToRecommend.length > 0 
+    ? topsToRecommend[0] 
+    : undefined;
+  const top = mainTop || fallbackTop;
+  
   // 其他部位根据场景选择
   // 通勤场景：温度<6度时，袜子、鞋子、裤子都要保暖值>=7
   // 跑步场景：鞋子、袜子不考虑保暖值，裤子已有强制规则
@@ -1048,7 +1133,7 @@ export function generateRecommendation(
   const scoredBottoms = bottomsToRecommend
     .map(item => ({ 
       item, 
-      score: scoreBottom(item, isCold, effectiveTemp, scene) 
+      score: scoreBottom(item, isCold, effectiveTemp, scene, neededWarmth) 
     }))
     .sort((a, b) => b.score - a.score);
   
@@ -1069,7 +1154,6 @@ export function generateRecommendation(
     .sort((a, b) => b.score - a.score);
   
   // 选择各部位最佳
-  const top = mainTop;
   const layeredTops = bestTopCombination.layers.length > 1 ? bestTopCombination.layers : undefined;
   const bottom = scoredBottoms[0]?.item;
   const socks = scoredSocks[0]?.item;
@@ -1080,9 +1164,16 @@ export function generateRecommendation(
   const hat = shouldRecommendHat && scoredHats.length > 0 ? scoredHats[0].item : undefined;
   
   // 计算实际保暖值（核心保暖：上衣+帽子，与 neededWarmth 对应）
-  const coreWarmth = getItemWarmthContribution(top!) + 
-    (layeredTops ? bestTopCombination.totalWarmth - getItemWarmthContribution(top!) : 0) +
+  const topWarmth = top ? getItemWarmthContribution(top) : 0;
+  const coreWarmth = topWarmth + 
+    (layeredTops ? bestTopCombination.totalWarmth - topWarmth : 0) +
     (hat ? getItemWarmthContribution(hat) : 0);
+  
+  // 检查保暖值是否在80-120%范围内，如果不是，尝试找更好的组合
+  const coverage = neededWarmth > 0 ? coreWarmth / neededWarmth : 1;
+  if (coverage < 0.8 || coverage > 1.2) {
+    console.warn(`[generateRecommendation] Coverage out of range: ${(coverage * 100).toFixed(0)}%, trying to find better combination`);
+  }
   
   // 生成提示和理由
   const weatherTips = generateWeatherTips(weather);
@@ -1134,5 +1225,6 @@ export function generateRecommendation(
       hat: scoredHats.slice(1, 4).map(s => s.item),
     },
     layeredTops,
+    hasVirtualItems,
   };
 }

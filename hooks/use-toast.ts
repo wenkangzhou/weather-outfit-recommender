@@ -32,9 +32,9 @@ export function toast(options: ToastOptions) {
   const el = document.createElement('div');
   el.id = 'toast-notification';
   
-  // 使用与整体风格一致的颜色，带透明度
+  // 深色背景配合白色文字，对比度更好
   const isSuccess = options.variant !== 'destructive';
-  const bgColor = isSuccess ? 'rgba(16, 185, 129, 0.85)' : 'rgba(239, 68, 68, 0.85)'; // emerald-500 / red-500 with opacity
+  const bgColor = isSuccess ? 'rgba(30, 41, 59, 0.95)' : 'rgba(220, 38, 38, 0.95)'; // slate-800 / red-600 with opacity
   
   el.style.cssText = `
     position: fixed;
@@ -43,26 +43,20 @@ export function toast(options: ToastOptions) {
     transform: translate(-50%, -50%);
     z-index: 9999;
     padding: 16px 24px;
-    border-radius: 16px;
+    border-radius: 12px;
     background: ${bgColor};
     color: white;
-    box-shadow: 0 20px 50px -10px rgba(0,0,0,0.3);
-    font-size: 15px;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+    box-shadow: 0 20px 50px -10px rgba(0,0,0,0.4);
     animation: toast-pop 0.25s ease-out;
   `;
   
+  const descHtml = options.description 
+    ? `<div style="font-size:13px;color:rgba(255,255,255,0.85);margin-top:6px;line-height:1.5;">${options.description}</div>` 
+    : '';
+  
   el.innerHTML = `
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      ${isSuccess 
-        ? '<path d="M20 6L9 17l-5-5"/>' 
-        : '<circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>'
-      }
-    </svg>
-    <span>${options.title || ''}</span>
+    <div style="font-weight:600;font-size:16px;">${options.title || ''}</div>
+    ${descHtml}
   `;
   
   if (!document.getElementById('toast-styles')) {

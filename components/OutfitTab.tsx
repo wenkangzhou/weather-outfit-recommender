@@ -8,7 +8,7 @@ import { MapPin, RefreshCw, ChevronDown, Wind, Droplets, Plus, Shirt, Check, His
 import { ClothingItem, WeatherData, OutfitRecommendation, OutfitScene, UserPreferences, RunType } from '@/types';
 import { getMockWeather } from '@/lib/weather';
 import { generateRecommendation } from '@/lib/recommendation';
-import { getClothingItems, getUserPreferences, saveOutfitToHistory } from '@/lib/supabase';
+import { getClothingItems, getUserPreferences, saveOutfitToHistory, addClothingItem } from '@/lib/supabase';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import ClothingCard from './ClothingCard';
@@ -126,20 +126,15 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
       };
       setWardrobe(wardrobeData);
       
-      // 只有衣柜完整才生成推荐
-      const completeness = checkWardrobeCompleteness(items);
-      if (completeness.isComplete) {
-        const rec = generateRecommendation(
-          wardrobeData,
-          weather,
-          prefs || getDefaultPreferences(),
-          scene,
-          runType
-        );
-        setRecommendation(rec);
-      } else {
-        setRecommendation(null);
-      }
+      // 总是生成推荐（衣柜不完整时使用虚拟衣物）
+      const rec = generateRecommendation(
+        wardrobeData,
+        weather,
+        prefs || getDefaultPreferences(),
+        scene,
+        runType
+      );
+      setRecommendation(rec);
     } catch (error) {
       console.error('Failed to load data:', error);
     } finally {
@@ -174,12 +169,7 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
 
   const generateNewRecommendation = useCallback(() => {
     if (!weather) return;
-    // 检查 wardrobe 是否有数据
-    const hasWardrobe = wardrobe.tops.length > 0 && wardrobe.bottoms.length > 0 && wardrobe.socks.length > 0 && wardrobe.shoes.length > 0;
-    if (!hasWardrobe) {
-      toast({ title: t('outfit.pleaseAddClothes'), description: t('outfit.needCompleteWardrobe') });
-      return;
-    }
+    // 不再检查衣柜是否完整，generateRecommendation 会自动混入虚拟衣物
     
     // 递增组合索引，实现不同层组合的轮换
     const nextIndex = combinationIndex + 1;
@@ -363,6 +353,71 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
     }
   };
 
+  // 添加虚拟衣物到衣柜
+  const handleAddVirtualToWardrobe = async (item: ClothingItem) => {
+    try {
+      // 创建新物品（去掉 isVirtual，数据库不支持该列）
+      const newItem = {
+        name: item.name,
+        category: item.category,
+        subCategory: item.subCategory,
+        warmthLevel: item.warmthLevel,
+        waterResistant: item.waterResistant,
+        windResistant: item.windResistant,
+        usage: item.usage,
+        hasPockets: item.hasPockets,
+      };
+      
+      // 添加并获取新物品（包含生成的ID）
+      const addedItem = await addClothingItem(newItem);
+      
+      // 把新物品ID保存到 localStorage（标记为平台推荐）
+      const saved = localStorage.getItem('virtualItemIds');
+      const virtualIds = new Set(saved ? JSON.parse(saved) : []);
+      virtualIds.add(addedItem.id);
+      localStorage.setItem('virtualItemIds', JSON.stringify(Array.from(virtualIds)));
+      
+      // 刷新衣柜数据
+      const items = await getClothingItems();
+      setAllItems(items);
+      const newWardrobe = {
+        tops: items.filter(i => i.category === 'top'),
+        bottoms: items.filter(i => i.category === 'bottom'),
+        socks: items.filter(i => i.category === 'socks'),
+        shoes: items.filter(i => i.category === 'shoes'),
+        hats: items.filter(i => i.category === 'hat'),
+      };
+      setWardrobe(newWardrobe);
+      
+      // 重新生成推荐（让用户衣物优先被选中）
+      if (weather) {
+        const rec = generateRecommendation(
+          newWardrobe,
+          weather,
+          preferences || getDefaultPreferences(),
+          scene,
+          runType
+        );
+        setRecommendation(rec);
+      }
+      
+      // 通知其他组件衣柜已更新
+      window.dispatchEvent(new Event('wardrobe-changed'));
+      
+      toast({ 
+        title: '已添加到衣柜',
+        description: '建议去「衣柜」修改为真实衣物名称',
+      });
+    } catch (error) {
+      console.error('Failed to add item:', error);
+      toast({
+        title: '添加失败',
+        description: '请稍后重试',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const wardrobeStatus = checkWardrobeCompleteness(allItems);
 
   // 组装推荐理由（支持 i18n）- 使用 useMemo 缓存
@@ -499,161 +554,10 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
     );
   }
 
-  // ===== 衣柜为空状态 =====
-  if (wardrobeStatus.isEmpty) {
-    return (
-      <div className="min-h-screen pb-16 animate-fade-in">
-        {/* Header */}
-        <header className="safe-area-header px-5 flex items-center justify-between">
-          <button 
-            onClick={() => setShowLocationPicker(true)}
-            className="flex items-center gap-1.5 text-foreground/80 hover:text-foreground transition-colors"
-          >
-            <MapPin size={16} />
-            <span className="font-medium">
-              {weather?.cityName || preferences?.location || t('status.locating')}
-            </span>
-            <ChevronDown size={14} className="text-muted-foreground" />
-          </button>
-        </header>
+  // ===== 衣柜为空状态 - 现在有虚拟推荐，所以继续展示 =====
+  // 不再阻止展示，而是继续渲染推荐（会显示虚拟衣物）
+  // if (wardrobeStatus.isEmpty) { ... }
 
-        {/* Empty State */}
-        <div className="flex flex-col items-center justify-center min-h-[70vh] px-5">
-          <div className="w-24 h-24 rounded-3xl bg-muted flex items-center justify-center text-5xl mb-6">
-            👕
-          </div>
-          <h3 className="text-xl font-semibold mb-2">衣柜还是空的</h3>
-          <p className="text-sm text-muted-foreground text-center max-w-xs mb-8">
-            请先录入你的衣物，我才能为你推荐今日穿搭
-          </p>
-          <Button 
-            size="lg" 
-            className="h-14 px-8 text-base"
-            onClick={() => router.push('/wardrobe')}
-          >
-            <Plus size={20} className="mr-2" />
-            去录入衣物
-          </Button>
-        </div>
-
-        {/* Location Picker */}
-        {showLocationPicker && (
-          <CityPicker
-            currentCity={weather?.cityName || preferences?.location || '上海'}
-            onSelect={(city) => {
-              const newWeather = { ...weather!, cityName: city };
-              setWeather(newWeather);
-            }}
-            onClose={() => setShowLocationPicker(false)}
-          />
-        )}
-      </div>
-    );
-  }
-
-  // ===== 衣柜不完整状态 =====
-  if (!wardrobeStatus.isComplete) {
-    return (
-      <div className="min-h-screen pb-16 animate-fade-in">
-        {/* Header */}
-        <header className="safe-area-header px-5 flex items-center justify-between">
-          <button 
-            onClick={() => setShowLocationPicker(true)}
-            className="flex items-center gap-1.5 text-foreground/80 hover:text-foreground transition-colors"
-          >
-            <MapPin size={16} />
-            <span className="font-medium">
-              {weather?.cityName || preferences?.location || t('status.locating')}
-            </span>
-            <ChevronDown size={14} className="text-muted-foreground" />
-          </button>
-
-          {/* Scene Toggle */}
-          <div className="flex bg-muted rounded-full p-1">
-            <SceneButton 
-              active={scene === 'commute'} 
-              onClick={() => setScene('commute')}
-              label={t('scene.commute')}
-            />
-            <SceneButton 
-              active={scene === 'running'} 
-              onClick={() => setScene('running')}
-              label={t('scene.running')}
-            />
-          </div>
-        </header>
-
-        {/* Weather Summary */}
-        <section className="pt-6 pb-4 px-5">
-          <div className="flex items-center justify-between">
-            {/* Left: Temperature & Weather Icon */}
-            <div className="flex items-center gap-4">
-              <div className="text-5xl">
-                {weather?.isRaining ? '🌧️' : 
-                 weather?.weatherCode && weather.weatherCode >= 801 ? '☁️' : 
-                 weather?.weatherCode && weather.weatherCode >= 800 ? '☀️' : '⛅'}
-              </div>
-              <div>
-                <div className="data-large text-foreground leading-none">{weather?.temp ?? 15}°</div>
-                <div className="text-muted-foreground text-sm mt-1">
-                  {weather?.description ?? t('weather.cloudy')} · {t('weather.feelsLike')} {weather?.feelsLike ?? 13}°
-                </div>
-              </div>
-            </div>
-            
-            {/* Right: Weather Metrics */}
-            <div className="flex flex-col items-end gap-2">
-              <div className="flex items-center gap-1.5 text-sm">
-                <Wind size={14} className="text-blue-500" />
-                <span className="font-medium tabular-nums text-foreground">{Math.round(weather?.windSpeed ?? 3)}m/s</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-sm">
-                <Droplets size={14} className="text-cyan-500" />
-                <span className="font-medium tabular-nums text-foreground">{weather?.humidity ?? 65}%</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Incomplete Wardrobe Notice */}
-        <div className="px-5">
-          <Card className="p-6 border-dashed border-2">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
-                <Shirt size={24} className="text-amber-500" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold mb-1">衣柜还不完整</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  缺少: {wardrobeStatus.missingCategories.join('、')}
-                </p>
-                <Button 
-                  variant="secondary" 
-                  className="w-full"
-                  onClick={() => router.push('/wardrobe')}
-                >
-                  <Plus size={16} className="mr-2" />
-                  去补充衣物
-                </Button>
-              </div>
-            </div>
-          </Card>
-        </div>
-
-        {/* Location Picker */}
-        {showLocationPicker && (
-          <CityPicker
-            currentCity={weather?.cityName || preferences?.location || '上海'}
-            onSelect={(city) => {
-              const newWeather = { ...weather!, cityName: city };
-              setWeather(newWeather);
-            }}
-            onClose={() => setShowLocationPicker(false)}
-          />
-        )}
-      </div>
-    );
-  }
 
   // ===== 正常状态：显示穿搭推荐 =====
   return (
@@ -733,6 +637,23 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
           </div>
         </div>
 
+        {/* 虚拟衣物提示 */}
+        {recommendation?.hasVirtualItems && (
+          <div className="mx-0 mb-3 p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
+            <div className="flex items-start gap-2">
+              <span className="text-orange-500 text-lg">💡</span>
+              <div className="flex-1">
+                <p className="text-xs text-orange-800 dark:text-orange-200 font-medium">
+                  以下推荐包含平台示例衣物
+                </p>
+                <p className="text-[10px] text-orange-600 dark:text-orange-400 mt-0.5">
+                  您可以点击「添加到衣柜」将喜欢的衣物保存到您的衣柜，或前往衣柜录入您自己的衣物
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Reasoning - 推荐理由卡片 */}
         {recommendation && (
           <Card className="mx-0 mb-3 p-3 bg-primary/5 border-primary/20">
@@ -806,7 +727,8 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
                         label={layerLabel}
                         labelBadgeColor={layerBadgeColor}
                         icon={index === arr.length - 1 ? '👕' : '👔'}
-                        onReplace={() => handleReplace('top')} 
+                        onReplace={() => handleReplace('top')}
+                        onAddToWardrobe={layer!.isVirtual ? () => handleAddVirtualToWardrobe(layer!) : undefined}
                       />
                       {/* 多层时显示删除按钮 - 放在卡片右上角，hover时显示 */}
                       {arr.length > 1 && (
@@ -836,31 +758,28 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
                 {t('outfit.addLayer')}
               </button>
             </div>
-            <ClothingCard item={recommendation?.outfit.bottom} label={t('clothing.bottom')} icon="👖" onReplace={() => handleReplace('bottom')} />
-            <ClothingCard item={recommendation?.outfit.socks} label={t('clothing.socks')} icon="🧦" onReplace={() => handleReplace('socks')} />
-            <ClothingCard item={recommendation?.outfit.shoes} label={t('clothing.shoes')} icon="👟" onReplace={() => handleReplace('shoes')} />
+            <ClothingCard item={recommendation?.outfit.bottom} label={t('clothing.bottom')} icon="👖" onReplace={() => handleReplace('bottom')} onAddToWardrobe={recommendation?.outfit.bottom?.isVirtual ? () => handleAddVirtualToWardrobe(recommendation.outfit.bottom!) : undefined} />
+            <ClothingCard item={recommendation?.outfit.socks} label={t('clothing.socks')} icon="🧦" onReplace={() => handleReplace('socks')} onAddToWardrobe={recommendation?.outfit.socks?.isVirtual ? () => handleAddVirtualToWardrobe(recommendation.outfit.socks!) : undefined} />
+            <ClothingCard item={recommendation?.outfit.shoes} label={t('clothing.shoes')} icon="👟" onReplace={() => handleReplace('shoes')} onAddToWardrobe={recommendation?.outfit.shoes?.isVirtual ? () => handleAddVirtualToWardrobe(recommendation.outfit.shoes!) : undefined} />
             
-            {/* 帽子 - 可选 */}
-            {wardrobeStatus.hasHat && (
-              <>
-                {recommendation?.outfit.hat ? (
-                  <ClothingCard 
-                    item={recommendation.outfit.hat} 
-                    label="帽子" 
-                    icon="🧢"
-                    onReplace={() => handleReplace('hat')} 
-                    deletable
-                    onDelete={removeHat}
-                  />
-                ) : (
-                  <ClothingCard 
-                    showAdd 
-                    label="帽子" 
-                    icon="🧢"
-                    onAdd={handleAddHat}
-                  />
-                )}
-              </>
+            {/* 帽子 - 始终显示（可选） */}
+            {recommendation?.outfit.hat ? (
+              <ClothingCard 
+                item={recommendation.outfit.hat} 
+                label="帽子" 
+                icon="🧢"
+                onReplace={() => handleReplace('hat')}
+                onAddToWardrobe={recommendation.outfit.hat.isVirtual ? () => handleAddVirtualToWardrobe(recommendation.outfit.hat!) : undefined}
+                deletable
+                onDelete={removeHat}
+              />
+            ) : (
+              <ClothingCard 
+                showAdd 
+                label="帽子" 
+                icon="🧢"
+                onAdd={handleAddHat}
+              />
             )}
           </div>
         </div>
