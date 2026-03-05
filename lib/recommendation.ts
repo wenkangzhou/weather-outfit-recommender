@@ -100,7 +100,8 @@ function shouldUseMinimumWarmth(effectiveTemp: number): boolean {
 function calculateTargetWarmth(
   weather: WeatherData,
   scene: OutfitScene,
-  runType?: RunType
+  runType: RunType | undefined,
+  preferences?: UserPreferences
 ): { 
   neededWarmth: number; 
   effectiveTemp: number;
@@ -108,6 +109,8 @@ function calculateTargetWarmth(
   isExtremeHeat: boolean;
   tempRange: [number, number];
 } {
+  console.log('[calculateTargetWarmth] Input:', { scene, runType, preferences });
+  
   const effectiveTemp = calculateEffectiveTemp(weather, scene, runType);
   
   // 高温兜底：超过 28°C，无论如何穿都热
@@ -126,13 +129,36 @@ function calculateTargetWarmth(
     ? ACTIVITY_CONFIG.commute 
     : ACTIVITY_CONFIG[runType || 'easy'];
   
+  // 使用用户配置的目标温度（如果有）
+  let targetTemp = config.target;
+  console.log('[calculateTargetWarmth] Default target from config:', targetTemp);
+  
+  if (scene === 'commute' && preferences?.commuteTargetTemp !== undefined) {
+    targetTemp = preferences.commuteTargetTemp;
+    console.log('[calculateTargetWarmth] Using custom commute temp:', targetTemp);
+  } else if (scene === 'running' && runType) {
+    // 根据跑步类型使用对应的目标温度
+    const runTypeTempMap: Record<RunType, number | undefined> = {
+      'easy': preferences?.easyRunTargetTemp,
+      'long': preferences?.longRunTargetTemp,
+      'interval': preferences?.intervalRunTargetTemp,
+    };
+    const customTemp = runTypeTempMap[runType];
+    if (customTemp !== undefined) {
+      targetTemp = customTemp;
+      console.log('[calculateTargetWarmth] Using custom run temp:', targetTemp);
+    }
+  }
+  
+  console.log('[calculateTargetWarmth] Final targetTemp:', targetTemp);
+  
   // 需要的保暖总值 = 目标温度 - 体感温度
-  const neededWarmth = config.target - effectiveTemp;
+  const neededWarmth = targetTemp - effectiveTemp;
   
   return {
     neededWarmth: Math.max(0, neededWarmth),
     effectiveTemp,
-    targetTemp: config.target,
+    targetTemp,
     isExtremeHeat: false,
     tempRange: config.range
   };
@@ -422,17 +448,15 @@ export interface ReasoningData {
 function generateReasoningData(
   weather: WeatherData,
   scene: OutfitScene,
-  runType?: RunType,
-  effectiveTemp?: number,
-  outfitWarmth?: number,
-  neededWarmth?: number,
-  layerTypes?: LayerType[],
-  isExtremeHeat?: boolean,
-  tempRange?: [number, number]
+  runType: RunType | undefined,
+  effectiveTemp: number,
+  outfitWarmth: number,
+  neededWarmth: number,
+  layerTypes: LayerType[],
+  isExtremeHeat: boolean,
+  tempRange: [number, number],
+  targetTemp: number  // <-- 传入计算好的目标温度
 ): ReasoningData {
-  const targetTemp = scene === 'running' && runType 
-    ? ACTIVITY_CONFIG[runType].target 
-    : ACTIVITY_CONFIG.commute.target;
     
   const coverage = neededWarmth !== undefined && outfitWarmth !== undefined && neededWarmth > 0
     ? Math.min(100, Math.round((outfitWarmth / neededWarmth) * 100))
@@ -454,15 +478,16 @@ function generateReasoningData(
 function generateReasoning(
   weather: WeatherData,
   scene: OutfitScene,
-  runType?: RunType,
-  effectiveTemp?: number,
-  outfitWarmth?: number,
-  neededWarmth?: number,
-  layerTypes?: LayerType[],
-  isExtremeHeat?: boolean,
-  tempRange?: [number, number]
+  runType: RunType | undefined,
+  effectiveTemp: number,
+  outfitWarmth: number,
+  neededWarmth: number,
+  layerTypes: LayerType[],
+  isExtremeHeat: boolean,
+  tempRange: [number, number],
+  targetTemp: number
 ): string {
-  const data = generateReasoningData(weather, scene, runType, effectiveTemp, outfitWarmth, neededWarmth, layerTypes, isExtremeHeat, tempRange);
+  const data = generateReasoningData(weather, scene, runType, effectiveTemp, outfitWarmth, neededWarmth, layerTypes, isExtremeHeat, tempRange, targetTemp);
   
   if (data.isExtremeHeat) {
     return 'Extreme heat, lightweight recommended';
@@ -917,7 +942,9 @@ function generateMinimumWarmthOutfit(
     0, 
     0,
     ['base'],
-    true  // isExtremeHeat
+    true,  // isExtremeHeat
+    [0, 0],
+    0  // targetTemp for extreme heat
   );
   
   const reasoning = generateReasoning(
@@ -928,7 +955,9 @@ function generateMinimumWarmthOutfit(
     0, 
     0,
     ['base'],
-    true
+    true,
+    [0, 0],
+    0  // targetTemp for extreme heat
   );
   
   return {
@@ -983,7 +1012,7 @@ export function generateRecommendation(
     targetTemp,
     isExtremeHeat,
     tempRange 
-  } = calculateTargetWarmth(weather, scene, runType);
+  } = calculateTargetWarmth(weather, scene, runType, preferences);
   
   // 高温兜底：选择最薄的衣物
   if (isExtremeHeat) {
@@ -1186,7 +1215,8 @@ export function generateRecommendation(
     neededWarmth,
     bestTopCombination.layerTypes,
     isExtremeHeat,
-    tempRange
+    tempRange,
+    targetTemp  // <-- 传入用户设置的目标温度
   );
   const reasoning = generateReasoning(
     weather, 
@@ -1197,7 +1227,8 @@ export function generateRecommendation(
     neededWarmth,
     bestTopCombination.layerTypes,
     isExtremeHeat,
-    tempRange
+    tempRange,
+    targetTemp  // <-- 传入用户设置的目标温度
   );
   
   // 多层时不显示单层备选，避免混淆

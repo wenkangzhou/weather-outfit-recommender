@@ -8,7 +8,7 @@ import { MapPin, RefreshCw, ChevronDown, Wind, Droplets, Plus, Shirt, Check, His
 import { ClothingItem, WeatherData, OutfitRecommendation, OutfitScene, UserPreferences, RunType } from '@/types';
 import { getMockWeather } from '@/lib/weather';
 import { generateRecommendation } from '@/lib/recommendation';
-import { getClothingItems, getUserPreferences, saveOutfitToHistory, addClothingItem } from '@/lib/supabase';
+import { getClothingItems, getUserPreferences, saveUserPreferences, saveOutfitToHistory, addClothingItem } from '@/lib/supabase';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import ClothingCard from './ClothingCard';
@@ -17,6 +17,7 @@ import { toast } from '@/hooks/use-toast';
 
 interface OutfitTabProps {
   weather?: WeatherData | null;
+  isActive?: boolean;
 }
 
 const RUN_TYPES: { type: RunType; label: string; shortLabel: string; desc: string }[] = [
@@ -46,8 +47,26 @@ function checkWardrobeCompleteness(items: ClothingItem[]) {
   return { isEmpty, isComplete, hasTop, hasBottom, hasSocks, hasShoes, hasHat, missingCategories, total };
 }
 
-export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
+export default function OutfitTab({ weather: propWeather, isActive = true }: OutfitTabProps) {
   const router = useRouter();
+  
+  // 当切换到其他 tab 时，关闭菜单
+  useEffect(() => {
+    if (!isActive) {
+      setShowActionMenu(false);
+    }
+  }, [isActive]);
+  
+  // 当 tab 变为活跃时，重新加载偏好设置（确保设置页修改后立即生效）
+  useEffect(() => {
+    if (isActive && weather) {
+      console.log('[OutfitTab] Tab became active, reloading preferences...');
+      // 不显示 loading，避免闪烁
+      loadData(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActive]);
+  
   const { t } = useTranslation();
   const [scene, setScene] = useState<OutfitScene>('commute');
   const [runType, setRunType] = useState<RunType>('easy');
@@ -63,6 +82,21 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
     hats: ClothingItem[];
   }>({ tops: [], bottoms: [], socks: [], shoes: [], hats: [] });
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
+  
+  // 处理场景切换并保存（必须在 preferences 声明之后）
+  const handleSceneChange = useCallback(async (newScene: OutfitScene) => {
+    console.log('[handleSceneChange] Changing scene to:', newScene);
+    setScene(newScene);
+    if (preferences) {
+      const newPrefs = { ...preferences, defaultScene: newScene };
+      console.log('[handleSceneChange] Saving preferences:', newPrefs);
+      const saved = await saveUserPreferences(newPrefs);
+      console.log('[handleSceneChange] Save result:', saved);
+      setPreferences(newPrefs);
+    } else {
+      console.warn('[handleSceneChange] No preferences loaded');
+    }
+  }, [preferences]);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [showAlternatives, setShowAlternatives] = useState(false);
   const [showHatSelector, setShowHatSelector] = useState(false);
@@ -108,10 +142,15 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
         setLoading(true);
       }
       const prefs = await getUserPreferences();
+      console.log('[OutfitTab] Loaded prefs:', prefs);
       setPreferences(prefs);
       // 只在初始化时设置默认跑步类型，不覆盖用户手动选择
       if (prefs?.defaultRunType && !runTypeChangedByUser) {
         setRunType(prefs.defaultRunType);
+      }
+      // 设置默认推荐场景
+      if (prefs?.defaultScene) {
+        setScene(prefs.defaultScene);
       }
       
       const items = await getClothingItems();
@@ -127,13 +166,16 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
       setWardrobe(wardrobeData);
       
       // 总是生成推荐（衣柜不完整时使用虚拟衣物）
+      const prefsToUse = prefs || getDefaultPreferences();
+      console.log('[OutfitTab] Using prefs for recommendation:', prefsToUse);
       const rec = generateRecommendation(
         wardrobeData,
         weather,
-        prefs || getDefaultPreferences(),
+        prefsToUse,
         scene,
         runType
       );
+      console.log('[OutfitTab] Generated recommendation targetTemp:', rec.reasoningData?.targetTemp);
       setRecommendation(rec);
     } catch (error) {
       console.error('Failed to load data:', error);
@@ -165,6 +207,11 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
     id: 'default',
     location: '上海',
     defaultRunType: 'easy',
+    commuteTargetTemp: 24,
+    easyRunTargetTemp: 12,
+    longRunTargetTemp: 10,
+    intervalRunTargetTemp: 8,
+    defaultScene: 'commute',
   });
 
   const generateNewRecommendation = useCallback(() => {
@@ -579,12 +626,12 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
         <div className="flex bg-muted rounded-full p-1">
           <SceneButton 
             active={scene === 'commute'} 
-            onClick={() => setScene('commute')}
+            onClick={() => handleSceneChange('commute')}
             label={t('scene.commute')}
           />
           <SceneButton 
             active={scene === 'running'} 
-            onClick={() => setScene('running')}
+            onClick={() => handleSceneChange('running')}
             label={t('scene.running')}
           />
         </div>
@@ -945,8 +992,8 @@ export default function OutfitTab({ weather: propWeather }: OutfitTabProps) {
         </div>
       )}
 
-      {/* Floating Action Button - 使用 Portal 渲染到 body，避免受父容器 transform 影响 */}
-      {mounted && createPortal(
+      {/* Floating Action Button - 只在当前 tab 激活时显示 */}
+      {mounted && isActive && createPortal(
         <div 
           className="fixed z-[100] flex flex-col items-end" 
           style={{ 

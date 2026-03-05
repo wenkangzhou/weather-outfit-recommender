@@ -10,6 +10,7 @@ import { UserPreferences, RunType } from '@/types';
 import { getUserPreferences, saveUserPreferences, getClothingItems, getOutfitHistory } from '@/lib/supabase';
 import { isLoggedIn, getUserDisplayInfo, logoutUser, getUserEmail, getUserInfo } from '@/lib/user';
 import { Card } from '@/components/ui/card';
+import { toast } from '@/hooks/use-toast';
 
 const RUN_TYPE_OPTIONS: { type: RunType; label: string }[] = [
   { type: 'easy', label: '有氧跑' },
@@ -24,9 +25,16 @@ export default function SettingsTab() {
   
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [defaultRunType, setDefaultRunType] = useState<RunType>('easy');
+  const [commuteTargetTemp, setCommuteTargetTemp] = useState<number>(24);
+  const [easyRunTargetTemp, setEasyRunTargetTemp] = useState<number>(12);
+  const [longRunTargetTemp, setLongRunTargetTemp] = useState<number>(10);
+  const [intervalRunTargetTemp, setIntervalRunTargetTemp] = useState<number>(8);
+  const [defaultScene, setDefaultScene] = useState<'commute' | 'running'>('commute');
   const [wardrobeCount, setWardrobeCount] = useState(0);
   const [historyCount, setHistoryCount] = useState(0);
   const [showRunTypePicker, setShowRunTypePicker] = useState(false);
+
+  const [showDefaultScenePicker, setShowDefaultScenePicker] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [userStatus, setUserStatus] = useState<'guest' | 'registered'>('guest');
   const [userDisplay, setUserDisplay] = useState('');
@@ -83,6 +91,11 @@ export default function SettingsTab() {
       if (prefs) {
         setPreferences(prefs);
         setDefaultRunType(prefs.defaultRunType || 'easy');
+        setCommuteTargetTemp(prefs.commuteTargetTemp ?? 24);
+        setEasyRunTargetTemp(prefs.easyRunTargetTemp ?? 12);
+        setLongRunTargetTemp(prefs.longRunTargetTemp ?? 10);
+        setIntervalRunTargetTemp(prefs.intervalRunTargetTemp ?? 8);
+        setDefaultScene(prefs.defaultScene || 'commute');
       }
       setWardrobeCount(items.length);
       setHistoryCount(history.length);
@@ -96,16 +109,69 @@ export default function SettingsTab() {
   // Auto-save when run type changes
   const handleRunTypeChange = useCallback(async (type: RunType) => {
     setDefaultRunType(type);
-    if (preferences) {
-      const newPrefs: UserPreferences = {
-        ...preferences,
-        defaultRunType: type,
-      };
+    
+    // 如果没有现有偏好设置，创建默认的
+    const basePrefs = preferences || {
+      id: 'temp',
+      location: '',
+      defaultRunType: type,
+      commuteTargetTemp: commuteTargetTemp,
+      easyRunTargetTemp: easyRunTargetTemp,
+      longRunTargetTemp: longRunTargetTemp,
+      intervalRunTargetTemp: intervalRunTargetTemp,
+      defaultScene: defaultScene,
+    };
+    
+    const newPrefs: UserPreferences = {
+      ...basePrefs,
+      defaultRunType: type,
+    };
+    
+    try {
       await saveUserPreferences(newPrefs);
       setPreferences(newPrefs);
+    } catch (err) {
+      console.error('[handleRunTypeChange] Save failed:', err);
+      toast({ title: '保存失败', description: String(err), variant: 'destructive' });
     }
+    
     setShowRunTypePicker(false);
-  }, [preferences]);
+  }, [preferences, commuteTargetTemp, easyRunTargetTemp, longRunTargetTemp, intervalRunTargetTemp, defaultScene]);
+  
+  // Save temperature preferences
+  const handleTempChange = async (updates: Partial<UserPreferences>) => {
+    console.log('[handleTempChange] Called with:', updates);
+    console.log('[handleTempChange] Current preferences:', preferences);
+    
+    // 如果没有现有偏好设置，创建默认的
+    const basePrefs = preferences || {
+      id: 'temp',
+      location: '',
+      defaultRunType: defaultRunType,
+      commuteTargetTemp: commuteTargetTemp,
+      easyRunTargetTemp: easyRunTargetTemp,
+      longRunTargetTemp: longRunTargetTemp,
+      intervalRunTargetTemp: intervalRunTargetTemp,
+      defaultScene: defaultScene,
+    };
+    
+    const newPrefs: UserPreferences = {
+      ...basePrefs,
+      ...updates,
+    };
+    
+    console.log('[handleTempChange] Saving newPrefs:', newPrefs);
+    
+    try {
+      const saved = await saveUserPreferences(newPrefs);
+      console.log('[handleTempChange] Saved result:', saved);
+      setPreferences(newPrefs);
+      toast({ title: '设置已保存' });
+    } catch (err) {
+      console.error('[handleTempChange] Save failed:', err);
+      toast({ title: '保存失败', description: String(err), variant: 'destructive' });
+    }
+  };
 
   if (!mounted) {
     return (
@@ -249,6 +315,55 @@ export default function SettingsTab() {
                 onClick={() => {
                   setLanguage('en');
                   i18n.changeLanguage('en');
+                }}
+              />
+            </div>
+          </Card>
+        </section>
+
+        {/* Preference - 穿搭偏好 */}
+        <section>
+          <div className="settings-section-title">
+            <Sun size={16} className="text-orange-500" />
+            穿搭偏好
+          </div>
+          
+          {/* 目标温度设置 - 跳转到独立页面 */}
+          <Card className="settings-card">
+            <button
+              onClick={() => router.push('/settings/temperature')}
+              className="w-full flex items-center justify-between p-4"
+            >
+              <div className="text-left">
+                <div className="font-medium">目标温度设置</div>
+                <div className="text-sm text-muted-foreground">
+                  通勤 {commuteTargetTemp}°C / 跑 {easyRunTargetTemp}-{intervalRunTargetTemp}°C
+                </div>
+              </div>
+              <ChevronRight size={18} className="text-muted-foreground" />
+            </button>
+          </Card>
+
+          {/* 默认推荐场景 */}
+          <Card className="settings-card">
+            <div className="settings-card-header">默认推荐场景</div>
+            <div className="options-row">
+              <OptionButton 
+                icon={<span>🚶</span>}
+                label="通勤"
+                active={defaultScene === 'commute'}
+                onClick={() => {
+                  setDefaultScene('commute');
+                  handleTempChange({ defaultScene: 'commute' });
+                }}
+              />
+              <OptionButton 
+                icon={<span>🏃</span>}
+                label="跑步"
+                active={defaultScene === 'running'}
+                onClick={() => {
+                  setDefaultScene('running');
+                  handleTempChange({ defaultScene: 'running' });
                 }}
               />
             </div>

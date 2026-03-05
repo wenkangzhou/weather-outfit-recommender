@@ -86,11 +86,18 @@ export interface OutfitHistoryItem {
   notes?: string; // 用户备注
 }
 
-// User preferences - 大幅简化
+// User preferences - 用户个性化配置
 export interface UserPreferences {
   id: string;
-  location: string; // city name for default
+  location: string; // 默认城市
   defaultRunType: RunType; // 默认跑步类型
+  // 目标温度设置
+  commuteTargetTemp?: number; // 通勤目标温度，默认 24°C
+  easyRunTargetTemp?: number; // 有氧跑目标温度，默认 12°C
+  longRunTargetTemp?: number; // 长距离目标温度，默认 10°C
+  intervalRunTargetTemp?: number; // 间歇跑目标温度，默认 8°C
+  // 默认推荐场景
+  defaultScene?: 'commute' | 'running'; // 默认打开 App 的场景
 }
 
 // Legacy History entry (kept for compatibility)

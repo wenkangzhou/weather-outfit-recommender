@@ -112,7 +112,7 @@ function AppContent() {
       <div className="relative min-h-screen max-w-md mx-auto">
         {/* 使用 CSS 控制显示，避免组件卸载重新加载 */}
         <div className={activeTab === 'outfit' ? 'block' : 'hidden'}>
-          <OutfitTab weather={weather} />
+          <OutfitTab weather={weather} isActive={activeTab === 'outfit'} />
         </div>
         <div className={activeTab === 'settings' ? 'block' : 'hidden'}>
           <SettingsTab />

@@ -88,6 +88,13 @@ interface UserPreferencesRow {
   default_run_type: 'easy' | 'long' | 'interval';
   user_id?: string;
   temp_user_id?: string;
+  // Temperature preferences
+  commute_target_temp?: number;
+  easy_run_target_temp?: number;
+  long_run_target_temp?: number;
+  interval_run_target_temp?: number;
+  // Default scene preference
+  default_scene?: 'commute' | 'running';
   // Legacy fields (to be removed)
   commute_distance?: number;
   run_distance?: number;
@@ -624,7 +631,13 @@ export async function saveOutfit(outfit: Omit<Outfit, 'id'>): Promise<Outfit> {
 export async function getUserPreferences(): Promise<UserPreferences | null> {
   const { tempUserId, userId } = getUserContext();
   
-  if (!isConfigured || !supabase) return getDemoPrefs();
+  console.log('[getUserPreferences] ===== START =====');
+  console.log('[getUserPreferences] Context:', { userId, tempUserId, isConfigured: !!isConfigured });
+  
+  if (!isConfigured || !supabase) {
+    console.log('[getUserPreferences] Using demo prefs (not configured)');
+    return getDemoPrefs();
+  }
   
   let query = supabase
     .from('user_preferences')
@@ -636,36 +649,65 @@ export async function getUserPreferences(): Promise<UserPreferences | null> {
   } else if (tempUserId) {
     query = query.eq('temp_user_id', tempUserId);
   } else {
+    console.log('[getUserPreferences] No userId/tempUserId, using demo prefs');
     return getDemoPrefs();
   }
   
   const { data, error } = await query.limit(1);
   
   if (error) {
-    console.error('getUserPreferences error:', error);
+    console.error('[getUserPreferences] Error:', error);
     return getDemoPrefs();
   }
   
   const record = first(data as UserPreferencesRow[]);
-  if (!record) return null;
+  console.log('[getUserPreferences] Raw record from DB:', record);
   
-  return {
+  if (!record) {
+    console.log('[getUserPreferences] No record found');
+    return null;
+  }
+  
+  const result = {
     id: record.id,
     location: record.location,
     defaultRunType: record.default_run_type || 'easy',
+    commuteTargetTemp: record.commute_target_temp,
+    easyRunTargetTemp: record.easy_run_target_temp,
+    longRunTargetTemp: record.long_run_target_temp,
+    intervalRunTargetTemp: record.interval_run_target_temp,
+    defaultScene: record.default_scene,
   };
+  
+  console.log('[getUserPreferences] Mapped result:', result);
+  console.log('[getUserPreferences] ===== END =====');
+  return result;
 }
 
 export async function saveUserPreferences(prefs: Omit<UserPreferences, 'id'>): Promise<UserPreferences> {
   const { tempUserId, userId } = getUserContext();
   
-  if (!isConfigured || !supabase) {
+  console.log('[saveUserPreferences] ===== START =====');
+  console.log('[saveUserPreferences] Context:', { userId, tempUserId, isConfigured: !!isConfigured, hasSupabase: !!supabase });
+  console.log('[saveUserPreferences] Input prefs:', prefs);
+  
+  // 未配置 Supabase 或没有登录用户：使用 localStorage
+  if (!isConfigured || !supabase || !userId) {
+    console.log('[saveUserPreferences] Using localStorage. Reason:', { 
+      notConfigured: !isConfigured, 
+      noSupabase: !supabase, 
+      noUserId: !userId 
+    });
     const newPrefs = { ...prefs, id: 'demo_prefs' } as UserPreferences;
     setDemoPrefs(newPrefs);
+    console.log('[saveUserPreferences] Saved to localStorage:', newPrefs);
+    console.log('[saveUserPreferences] ===== END (localStorage) =====');
     return newPrefs;
   }
   
   // 检查是否已存在
+  console.log('[saveUserPreferences] Checking existing record for userId:', userId);
+  
   let existingQuery = supabase
     .from('user_preferences')
     .select('id');
@@ -676,12 +718,24 @@ export async function saveUserPreferences(prefs: Omit<UserPreferences, 'id'>): P
     existingQuery = existingQuery.eq('temp_user_id', tempUserId);
   }
   
-  const { data: existingData } = await existingQuery.limit(1);
+  const { data: existingData, error: existingError } = await existingQuery.limit(1);
+  
+  if (existingError) {
+    console.error('[saveUserPreferences] Error checking existing:', existingError);
+    throw existingError;
+  }
+  
   const existing = first(existingData as { id: string }[]);
+  console.log('[saveUserPreferences] Existing record:', existing);
   
   const dbPrefs: any = {
     location: prefs.location,
     default_run_type: prefs.defaultRunType,
+    commute_target_temp: prefs.commuteTargetTemp,
+    easy_run_target_temp: prefs.easyRunTargetTemp,
+    long_run_target_temp: prefs.longRunTargetTemp,
+    interval_run_target_temp: prefs.intervalRunTargetTemp,
+    default_scene: prefs.defaultScene,
   };
   
   // 添加用户标识
@@ -691,29 +745,48 @@ export async function saveUserPreferences(prefs: Omit<UserPreferences, 'id'>): P
     dbPrefs.temp_user_id = tempUserId;
   }
   
-  if (existing) {
-    const { data, error } = await supabase
-      .from('user_preferences')
-      .update(dbPrefs)
-      .eq('id', existing.id)
-      .select()
-      .limit(1);
-    
-    if (error) throw error;
-    const record = first(data as UserPreferencesRow[]);
-    if (!record) throw new Error('Update failed');
-    return { ...record, ...prefs };
-  } else {
-    const { data, error } = await supabase
-      .from('user_preferences')
-      .insert([dbPrefs])
-      .select()
-      .limit(1);
-    
-    if (error) throw error;
-    const record = first(data as UserPreferencesRow[]);
-    if (!record) throw new Error('Insert failed');
-    return { ...record, ...prefs };
+  console.log('[saveUserPreferences] DB payload:', dbPrefs);
+  
+  try {
+    if (existing) {
+      console.log('[saveUserPreferences] Updating existing record:', existing.id);
+      const { data, error } = await supabase
+        .from('user_preferences')
+        .update(dbPrefs)
+        .eq('id', existing.id)
+        .select()
+        .limit(1);
+      
+      if (error) {
+        console.error('[saveUserPreferences] Update error:', error);
+        throw error;
+      }
+      const record = first(data as UserPreferencesRow[]);
+      if (!record) throw new Error('Update failed');
+      console.log('[saveUserPreferences] Update success:', record);
+      console.log('[saveUserPreferences] ===== END (update) =====');
+      return { ...record, ...prefs };
+    } else {
+      console.log('[saveUserPreferences] Inserting new record');
+      const { data, error } = await supabase
+        .from('user_preferences')
+        .insert([dbPrefs])
+        .select()
+        .limit(1);
+      
+      if (error) {
+        console.error('[saveUserPreferences] Insert error:', error);
+        throw error;
+      }
+      const record = first(data as UserPreferencesRow[]);
+      if (!record) throw new Error('Insert failed');
+      console.log('[saveUserPreferences] Insert success:', record);
+      console.log('[saveUserPreferences] ===== END (insert) =====');
+      return { ...record, ...prefs };
+    }
+  } catch (e) {
+    console.error('[saveUserPreferences] Exception:', e);
+    throw e;
   }
 }
 
