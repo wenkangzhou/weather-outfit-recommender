@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { OutfitRecommendation, WeatherData } from '@/types';
 import { Cloud, Wind, Droplets, MapPin, ArrowRight } from 'lucide-react';
+import '@/i18n';
 
 interface ShareData {
   outfit: OutfitRecommendation;
@@ -17,20 +19,24 @@ interface ShareData {
 export default function SharePage() {
   const params = useParams();
   const router = useRouter();
+  const { t, i18n } = useTranslation();
   const [shareData, setShareData] = useState<ShareData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const id = params.id as string;
     
-    // 从 localStorage 读取分享数据
-    const stored = localStorage.getItem(`share_${id}`);
+    // 从 localStorage 读取分享数据（key 就是 id 本身）
+    const stored = localStorage.getItem(id);
+    console.log('[SharePage] Looking for key:', id, 'found:', !!stored);
+    
     if (stored) {
       try {
         const data = JSON.parse(stored);
+        console.log('[SharePage] Loaded data:', data);
         setShareData(data);
       } catch (e) {
-        console.error('Failed to parse share data:', e);
+        console.error('[SharePage] Failed to parse share data:', e);
       }
     }
     setLoading(false);
@@ -55,10 +61,10 @@ export default function SharePage() {
       <main className="min-h-screen bg-background">
         <div className="max-w-md mx-auto px-5 py-20 text-center">
           <div className="text-6xl mb-4">😅</div>
-          <h1 className="text-xl font-semibold mb-2">分享已过期</h1>
-          <p className="text-muted-foreground mb-6">这套穿搭分享链接已失效，来生成你自己的穿搭吧</p>
+          <h1 className="text-xl font-semibold mb-2">{t('share.expired')}</h1>
+          <p className="text-muted-foreground mb-6">{t('share.expiredDesc')}</p>
           <Button onClick={() => router.push('/')} className="w-full">
-            去首页看看
+            {t('share.goHome')}
           </Button>
         </div>
       </main>
@@ -66,6 +72,7 @@ export default function SharePage() {
   }
 
   const { outfit, weather, location } = shareData;
+  const isZh = i18n.language === 'zh';
 
   return (
     <main className="min-h-screen bg-background">
@@ -74,13 +81,13 @@ export default function SharePage() {
         <div className="text-center mb-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full text-sm text-primary mb-3">
             <MapPin size={14} />
-            朋友分享的穿搭
+            {t('share.fromFriend')}
           </div>
           <h1 className="text-2xl font-bold">
             {location} · {Math.round(weather.temp)}°C
           </h1>
           <p className="text-muted-foreground mt-1">
-            {new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })}
+            {new Date().toLocaleDateString(isZh ? 'zh-CN' : 'en-US', { month: 'long', day: 'numeric' })}
           </p>
         </div>
 
@@ -93,7 +100,7 @@ export default function SharePage() {
                 <Cloud size={32} />
                 <div>
                   <div className="text-3xl font-bold">{Math.round(weather.temp)}°</div>
-                  <div className="text-blue-100 text-sm">体感 {Math.round(weather.feelsLike)}°</div>
+                  <div className="text-blue-100 text-sm">{t('weather.feelsLike')} {Math.round(weather.feelsLike)}°</div>
                 </div>
               </div>
               <div className="text-right text-sm text-blue-100 space-y-1">
@@ -114,30 +121,30 @@ export default function SharePage() {
             {/* 场景标签 */}
             <div className="flex items-center gap-2">
               <span className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-full">
-                {outfit.outfit.scene === 'commute' ? '🚶 通勤' : '🏃 跑步'}
+                {outfit.outfit.scene === 'commute' ? `🚶 ${t('scene.commute')}` : `🏃 ${t('scene.running')}`}
               </span>
               {outfit.reasoningData && (
                 <span className="text-xs text-muted-foreground">
-                  目标 {outfit.reasoningData.targetTemp}°C
+                  {t('outfit.reasoning.target', { temp: outfit.reasoningData.targetTemp })}
                 </span>
               )}
             </div>
 
             {/* 衣物列表 */}
             <div className="space-y-3">
-              <OutfitItem label="上衣" item={outfit.outfit.top} />
+              <OutfitItem label={t('clothing.top')} item={outfit.outfit.top} />
               {outfit.layeredTops && outfit.layeredTops.length > 0 && (
                 <>
                   {outfit.layeredTops.slice(1).map((item, i) => (
-                    <OutfitItem key={i} label={`叠穿 ${i + 2}`} item={item} />
+                    <OutfitItem key={i} label={`${t('outfit.layer')} ${i + 2}`} item={item} />
                   ))}
                 </>
               )}
-              <OutfitItem label="下装" item={outfit.outfit.bottom} />
-              <OutfitItem label="袜子" item={outfit.outfit.socks} />
-              <OutfitItem label="鞋子" item={outfit.outfit.shoes} />
+              <OutfitItem label={t('clothing.bottom')} item={outfit.outfit.bottom} />
+              <OutfitItem label={t('clothing.socks')} item={outfit.outfit.socks} />
+              <OutfitItem label={t('clothing.shoes')} item={outfit.outfit.shoes} />
               {outfit.outfit.hat && (
-                <OutfitItem label="帽子" item={outfit.outfit.hat} />
+                <OutfitItem label={t('clothing.hat')} item={outfit.outfit.hat} />
               )}
             </div>
 
@@ -154,17 +161,17 @@ export default function SharePage() {
         <div className="space-y-3">
           <Button onClick={handleViewMyCity} className="w-full" size="lg">
             <MapPin size={18} className="mr-2" />
-            查看我的城市穿搭
+            {t('share.viewMyCity')}
           </Button>
           <Button variant="outline" onClick={() => router.push('/')} className="w-full">
-            去首页看看
+            {t('share.goHome')}
             <ArrowRight size={18} className="ml-2" />
           </Button>
         </div>
 
         {/* Footer */}
         <div className="text-center mt-8 text-sm text-muted-foreground">
-          Weather Style · 智能穿搭推荐
+          Weather Style · {isZh ? '智能穿搭推荐' : 'Smart Outfit Recommender'}
         </div>
       </div>
     </main>

@@ -67,7 +67,7 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive]);
   
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [scene, setScene] = useState<OutfitScene>('commute');
   const [runType, setRunType] = useState<RunType>('easy');
   const [weather, setWeather] = useState<WeatherData | null>(null);
@@ -124,6 +124,7 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
   const [shareImageUrl, setShareImageUrl] = useState<string | null>(null);
   const [generatingShare, setGeneratingShare] = useState(false);
   const shareCardRef = useRef<HTMLDivElement>(null);
+  const shareIdRef = useRef<string>('');
 
   // 客户端挂载状态
   const [mounted, setMounted] = useState(false);
@@ -482,28 +483,30 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
     setGeneratingShare(true);
     
     try {
-      // 生成唯一分享 ID
+      // 生成唯一分享 ID 并保存到 ref
       const shareId = `share_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      shareIdRef.current = shareId;
       
       // 保存分享数据到 localStorage
       const shareData = {
         outfit: recommendation,
         weather,
-        location: weather.cityName || preferences?.location || '未知位置',
+        location: weather.cityName || preferences?.location || (i18n.language === 'zh' ? '未知位置' : 'Unknown'),
         createdAt: new Date().toISOString(),
       };
       localStorage.setItem(shareId, JSON.stringify(shareData));
       
-      // 等待分享卡片渲染完成
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // 等待分享卡片渲染完成（给 QRCode 生成时间）
+      await new Promise(resolve => setTimeout(resolve, 300));
       
       // 生成分享图片
       if (shareCardRef.current) {
         const html2canvas = (await import('html2canvas')).default;
         const canvas = await html2canvas(shareCardRef.current, {
-          backgroundColor: null,
+          backgroundColor: '#ffffff',
           scale: 2,
           useCORS: true,
+          logging: false,
         });
         
         const dataUrl = canvas.toDataURL('image/png');
@@ -514,8 +517,8 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
         await navigator.clipboard.writeText(shareUrl);
         
         toast({ 
-          title: '分享链接已复制',
-          description: '图片已生成，可以粘贴链接或保存图片分享' 
+          title: t('share.linkCopied') || '分享链接已复制',
+          description: t('share.saveImageHint') || '图片已生成，可以粘贴链接或保存图片分享' 
         });
       }
     } catch (error) {
@@ -1180,13 +1183,14 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
       {showShareModal && recommendation && weather && (
         <div 
           ref={shareCardRef}
-          className="fixed -left-[9999px] top-0 w-[375px] bg-background"
-          style={{ position: 'absolute', left: '-9999px' }}
+          className="fixed -left-[9999px] top-0 bg-background"
+          style={{ position: 'fixed', left: '-9999px', top: '0' }}
         >
           <ShareCard 
             recommendation={recommendation} 
             weather={weather} 
-            location={weather.cityName || preferences?.location || '未知位置'}
+            location={weather.cityName || preferences?.location || (typeof window !== 'undefined' && i18n.language === 'zh' ? '未知位置' : 'Unknown')}
+            shareUrl={`${typeof window !== 'undefined' ? window.location.origin : ''}/share/${shareIdRef.current || ''}`}
           />
         </div>
       )}
@@ -1199,13 +1203,16 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
 function ShareCard({ 
   recommendation, 
   weather, 
-  location 
+  location,
+  shareUrl
 }: { 
   recommendation: OutfitRecommendation;
   weather: WeatherData;
   location: string;
+  shareUrl: string;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isZh = i18n.language === 'zh';
   
   // 获取天气图标
   const getWeatherIcon = () => {
@@ -1215,66 +1222,82 @@ function ShareCard({
     return '⛅';
   };
   
-  // 获取场景标签
+  // 获取场景标签 - 使用多语言
   const getSceneLabel = () => {
-    if (recommendation.outfit.scene === 'commute') return '🚶 通勤';
-    if (recommendation.outfit.runType === 'easy') return '🏃 有氧跑';
-    if (recommendation.outfit.runType === 'long') return '🏃 长距离';
-    if (recommendation.outfit.runType === 'interval') return '🏃 间歇跑';
-    return '🏃 跑步';
+    if (recommendation.outfit.scene === 'commute') {
+      return `🚶 ${t('scene.commute')}`;
+    }
+    if (recommendation.outfit.runType === 'easy') return `🏃 ${t('runType.easy')}`;
+    if (recommendation.outfit.runType === 'long') return `🏃 ${t('runType.long')}`;
+    if (recommendation.outfit.runType === 'interval') return `🏃 ${t('runType.interval')}`;
+    return `🏃 ${t('scene.running')}`;
+  };
+  
+  // 衣物类别标签 - 使用多语言
+  const getCategoryLabel = (category: string, index?: number) => {
+    if (category === '上衣') return t('clothing.top');
+    if (category === '叠穿') return `${t('outfit.layer')} ${index}`;
+    if (category === '下装') return t('clothing.bottom');
+    if (category === '袜子') return t('clothing.socks');
+    if (category === '鞋子') return t('clothing.shoes');
+    if (category === '帽子') return t('clothing.hat');
+    return category;
   };
   
   const items = [
-    { label: '上衣', item: recommendation.outfit.top },
+    { label: getCategoryLabel('上衣'), item: recommendation.outfit.top },
     ...(recommendation.layeredTops?.slice(1).map((item, i) => ({ 
-      label: `叠穿 ${i + 2}`, 
+      label: getCategoryLabel('叠穿', i + 2), 
       item 
     })) || []),
-    { label: '下装', item: recommendation.outfit.bottom },
-    { label: '袜子', item: recommendation.outfit.socks },
-    { label: '鞋子', item: recommendation.outfit.shoes },
-    ...(recommendation.outfit.hat ? [{ label: '帽子', item: recommendation.outfit.hat }] : []),
+    { label: getCategoryLabel('下装'), item: recommendation.outfit.bottom },
+    { label: getCategoryLabel('袜子'), item: recommendation.outfit.socks },
+    { label: getCategoryLabel('鞋子'), item: recommendation.outfit.shoes },
+    ...(recommendation.outfit.hat ? [{ label: getCategoryLabel('帽子'), item: recommendation.outfit.hat }] : []),
   ];
   
   return (
-    <div className="bg-white p-6">
+    <div className="bg-white p-6" style={{ width: '375px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-5">
         <div>
-          <div className="text-2xl font-bold text-slate-900">{Math.round(weather.temp)}°</div>
-          <div className="text-sm text-slate-500">{location}</div>
+          <div className="text-3xl font-bold text-gray-900">{Math.round(weather.temp)}°</div>
+          <div className="text-sm text-gray-500 mt-1">{location}</div>
         </div>
         <div className="text-right">
-          <div className="text-3xl">{getWeatherIcon()}</div>
-          <div className="text-xs text-slate-400 mt-1">
-            体感 {Math.round(weather.feelsLike)}°
+          <div className="text-4xl">{getWeatherIcon()}</div>
+          <div className="text-xs text-gray-400 mt-1">
+            {t('weather.feelsLike')} {Math.round(weather.feelsLike)}°
           </div>
         </div>
       </div>
       
-      {/* 场景标签 */}
-      <div className="flex items-center gap-2 mb-4">
-        <span className="px-3 py-1 bg-slate-900 text-white text-sm rounded-full">
+      {/* 场景标签 - 修复背景色 */}
+      <div className="flex items-center gap-2 mb-5">
+        <span 
+          className="px-3 py-1.5 text-sm rounded-full font-medium"
+          style={{ backgroundColor: '#1e293b', color: 'white' }}
+        >
           {getSceneLabel()}
         </span>
         {recommendation.reasoningData && (
-          <span className="text-sm text-slate-500">
-            目标 {recommendation.reasoningData.targetTemp}°C
+          <span className="text-sm text-gray-500">
+            {t('outfit.reasoning.target', { temp: recommendation.reasoningData.targetTemp })}
           </span>
         )}
       </div>
       
       {/* 衣物列表 */}
-      <div className="space-y-3 mb-4">
+      <div className="space-y-3 mb-5">
         {items.map(({ label, item }, index) => (
           <div key={index} className="flex items-center gap-3">
             <div 
-              className="w-10 h-10 rounded-lg flex-shrink-0" 
-              style={{ backgroundColor: item.color || '#e2e8f0' }}
+              className="w-10 h-10 rounded-lg flex-shrink-0 border border-gray-100"
+              style={{ backgroundColor: item.color || '#f1f5f9' }}
             />
-            <div className="flex-1">
-              <div className="text-xs text-slate-400">{label}</div>
-              <div className="font-medium text-slate-900">{item.name}</div>
+            <div className="flex-1 min-w-0">
+              <div className="text-xs text-gray-400">{label}</div>
+              <div className="font-medium text-gray-900 truncate">{item.name}</div>
             </div>
           </div>
         ))}
@@ -1282,22 +1305,48 @@ function ShareCard({
       
       {/* 推荐理由 */}
       {recommendation.reasoning && (
-        <div className="bg-slate-50 rounded-xl p-3 mb-4">
-          <p className="text-sm text-slate-600">{recommendation.reasoning}</p>
+        <div 
+          className="rounded-xl p-4 mb-5"
+          style={{ backgroundColor: '#f8fafc' }}
+        >
+          <p className="text-sm text-gray-600 leading-relaxed">{recommendation.reasoning}</p>
         </div>
       )}
       
-      {/* Footer */}
-      <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-        <div className="text-sm font-medium text-slate-900">
-          Weather Style
+      {/* Footer with QR Code */}
+      <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+        <div>
+          <div className="text-sm font-semibold text-gray-900">Weather Style</div>
+          <div className="text-xs text-gray-400 mt-0.5">
+            {isZh ? '扫码查看穿搭' : 'Scan to view outfit'}
+          </div>
         </div>
-        <div className="text-xs text-slate-400">
-          扫码查看我的穿搭
-        </div>
+        <QRCode url={shareUrl} />
       </div>
     </div>
   );
+}
+
+// QR Code Component
+function QRCode({ url, size = 64 }: { url: string; size?: number }) {
+  const [dataUrl, setDataUrl] = useState<string>('');
+  
+  useEffect(() => {
+    import('qrcode').then(QRCodeLib => {
+      QRCodeLib.toDataURL(url, { 
+        width: size,
+        margin: 1,
+        color: {
+          dark: '#1e293b',
+          light: '#ffffff'
+        }
+      }).then(setDataUrl);
+    });
+  }, [url, size]);
+  
+  if (!dataUrl) return <div style={{ width: size, height: size }} className="bg-gray-100 rounded" />;
+  
+  return <img src={dataUrl} alt="QR Code" style={{ width: size, height: size }} className="rounded" />;
 }
 
 // ===== Helper Components =====
