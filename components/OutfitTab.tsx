@@ -1223,7 +1223,7 @@ function ShareCard({
   ];
   
   return (
-    <div className="bg-white p-5" style={{ width: '375px', height: '519px', position: 'relative', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+    <div className="bg-white p-5 w-full" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
