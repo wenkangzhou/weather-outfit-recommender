@@ -1197,10 +1197,10 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
           style={{ 
             position: 'fixed', 
             left: '0', 
-            top: '0', 
+            bottom: '0', 
             visibility: 'hidden',
             pointerEvents: 'none',
-            zIndex: '9999'
+            zIndex: '-99'
           }}
         >
           <ShareCard 
