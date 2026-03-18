@@ -121,7 +121,7 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
   
   // 分享相关状态
   const [showShareModal, setShowShareModal] = useState(false);
-  const shareIdRef = useRef<string>('');
+  const [shareId, setShareId] = useState<string>('');
 
   // 客户端挂载状态
   const [mounted, setMounted] = useState(false);
@@ -488,7 +488,7 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
       };
       
       const saved = await saveOutfitShare(shareData);
-      shareIdRef.current = saved.id;
+      setShareId(saved.id);
       
       // 复制链接到剪贴板
       const shareUrl = `${window.location.origin}/share/${saved.id}`;
@@ -1122,7 +1122,7 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
                   recommendation={recommendation} 
                   weather={weather} 
                   location={weather.cityName || preferences?.location || (typeof window !== 'undefined' && i18n.language === 'zh' ? '未知位置' : 'Unknown')}
-                  shareUrl={`${typeof window !== 'undefined' ? window.location.origin : ''}/share/${shareIdRef.current || ''}`}
+                  shareUrl={`${typeof window !== 'undefined' ? window.location.origin : ''}/share/${shareId || ''}`}
                 />
               </div>
               
