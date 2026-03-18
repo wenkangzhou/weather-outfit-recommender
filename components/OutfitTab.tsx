@@ -1145,8 +1145,8 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
       {showShareModal && (
         <div className="fixed inset-0 bg-background/90 backdrop-blur-sm z-[100] flex items-start justify-center pt-12 pb-24 px-4 animate-fade-in overflow-y-auto">
           <Card className="w-full max-w-sm overflow-hidden shadow-2xl">
-            <div className="p-3 border-b border-border flex items-center justify-end">
-              <Button variant="ghost" size="icon" onClick={() => setShowShareModal(false)} className="h-8 w-8">
+            <div className="p-2 flex items-center justify-end">
+              <Button variant="ghost" size="icon" onClick={() => setShowShareModal(false)} className="h-7 w-7">
                 <XIcon />
               </Button>
             </div>
@@ -1279,26 +1279,26 @@ function ShareCard({
   ];
   
   return (
-    <div className="bg-white p-6" style={{ width: '375px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+    <div className="bg-white p-5" style={{ width: '375px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex items-center justify-between mb-4">
         <div>
-          <div className="text-3xl font-bold text-gray-900">{Math.round(weather.temp)}°</div>
-          <div className="text-sm text-gray-500 mt-1">{location}</div>
+          <div className="text-2xl font-bold text-gray-900">{Math.round(weather.temp)}°</div>
+          <div className="text-sm text-gray-500 mt-0.5">{location}</div>
         </div>
         <div className="text-right">
-          <div className="text-4xl">{getWeatherIcon()}</div>
-          <div className="text-xs text-gray-400 mt-1">
+          <div className="text-3xl">{getWeatherIcon()}</div>
+          <div className="text-xs text-gray-400 mt-0.5">
             {t('weather.feelsLike')} {Math.round(weather.feelsLike)}°
           </div>
         </div>
       </div>
       
       {/* 场景标签 - 修复背景色 */}
-      <div className="flex items-center gap-2 mb-5">
+      <div className="flex items-center gap-2 mb-4">
         <div 
-          className="flex items-center justify-center h-8 text-sm rounded-full font-medium"
-          style={{ backgroundColor: '#1e293b', color: 'white' }}
+          className="inline-flex items-center justify-center h-7 px-3 text-sm rounded-full font-medium"
+          style={{ backgroundColor: '#1e293b', color: 'white', lineHeight: '1' }}
         >
           {getSceneLabel()}
         </div>
@@ -1313,20 +1313,20 @@ function ShareCard({
       </div>
       
       {/* 衣物列表 */}
-      <div className="space-y-3 mb-5">
+      <div className="space-y-2 mb-4">
         {items.map(({ key, label, item }: { key: string; label: string; item: any }, index: number) => (
           <div key={index} className="flex items-center gap-3">
             <div 
-              className="w-10 h-10 rounded-lg flex-shrink-0 border border-gray-100 flex items-center justify-center"
+              className="w-9 h-9 rounded-lg flex-shrink-0 border border-gray-100 flex items-center justify-center text-base"
               style={{ 
                 backgroundColor: item.color && item.color.startsWith('#') ? item.color : '#f1f5f9'
               }}
             >
               {getItemIcon(key)}
             </div>
-            <div className="flex flex-col">
-              <div className="text-xs text-gray-400 leading-normal">{label}</div>
-              <div className="font-medium text-gray-900 leading-normal">{item.name}</div>
+            <div className="flex flex-col justify-center">
+              <div className="text-xs text-gray-400 leading-tight">{label}</div>
+              <div className="font-medium text-gray-900 text-sm leading-tight">{item.name}</div>
             </div>
           </div>
         ))}
@@ -1335,10 +1335,10 @@ function ShareCard({
       {/* 推荐理由 - 使用 reasoningData 组装多语言文本 */}
       {recommendation.reasoningData && (
         <div 
-          className="rounded-xl p-4 mb-5"
+          className="rounded-lg p-3 mb-4"
           style={{ backgroundColor: '#f8fafc' }}
         >
-          <span className="text-sm text-gray-600 leading-relaxed">
+          <span className="text-sm text-gray-600 leading-snug">
             {(() => {
               const data = recommendation.reasoningData!;
               const parts: string[] = [];
@@ -1379,14 +1379,14 @@ function ShareCard({
       )}
       
       {/* Footer with QR Code */}
-      <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+      <div className="flex items-center justify-between pt-3 border-t border-gray-100">
         <div>
           <div className="text-sm font-semibold text-gray-900">Weather Style</div>
-          <div className="text-xs text-gray-400 mt-0.5">
+          <div className="text-xs text-gray-400">
             {isZh ? '扫码查看穿搭' : 'Scan to view outfit'}
           </div>
         </div>
-        <QRCode url={shareUrl} />
+        <QRCode url={shareUrl} size={56} />
       </div>
     </div>
   );
