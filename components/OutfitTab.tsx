@@ -1235,25 +1235,38 @@ function ShareCard({
   
   // 衣物类别标签 - 使用多语言
   const getCategoryLabel = (category: string, index?: number) => {
-    if (category === '上衣') return t('clothing.top');
-    if (category === '叠穿') return `${t('outfit.layer')} ${index}`;
-    if (category === '下装') return t('clothing.bottom');
-    if (category === '袜子') return t('clothing.socks');
-    if (category === '鞋子') return t('clothing.shoes');
-    if (category === '帽子') return t('clothing.hat');
+    if (category === 'top') return t('clothing.top');
+    if (category === 'layer') return `${t('outfit.layer')} ${index}`;
+    if (category === 'bottom') return t('clothing.bottom');
+    if (category === 'socks') return t('clothing.socks');
+    if (category === 'shoes') return t('clothing.shoes');
+    if (category === 'hat') return t('clothing.hat');
     return category;
   };
   
+  // 获取衣物图标
+  const getItemIcon = (category: string) => {
+    const icons: Record<string, string> = {
+      top: '👕',
+      bottom: '👖',
+      socks: '🧦',
+      shoes: '👟',
+      hat: '🧢',
+    };
+    return icons[category] || '👕';
+  };
+  
   const items = [
-    { label: getCategoryLabel('上衣'), item: recommendation.outfit.top },
+    { key: 'top', label: getCategoryLabel('top'), item: recommendation.outfit.top },
     ...(recommendation.layeredTops?.slice(1).map((item, i) => ({ 
-      label: getCategoryLabel('叠穿', i + 2), 
+      key: 'layer',
+      label: getCategoryLabel('layer', i + 2), 
       item 
     })) || []),
-    { label: getCategoryLabel('下装'), item: recommendation.outfit.bottom },
-    { label: getCategoryLabel('袜子'), item: recommendation.outfit.socks },
-    { label: getCategoryLabel('鞋子'), item: recommendation.outfit.shoes },
-    ...(recommendation.outfit.hat ? [{ label: getCategoryLabel('帽子'), item: recommendation.outfit.hat }] : []),
+    { key: 'bottom', label: getCategoryLabel('bottom'), item: recommendation.outfit.bottom },
+    { key: 'socks', label: getCategoryLabel('socks'), item: recommendation.outfit.socks },
+    { key: 'shoes', label: getCategoryLabel('shoes'), item: recommendation.outfit.shoes },
+    ...(recommendation.outfit.hat ? [{ key: 'hat', label: getCategoryLabel('hat'), item: recommendation.outfit.hat }] : []),
   ];
   
   return (
@@ -1289,12 +1302,16 @@ function ShareCard({
       
       {/* 衣物列表 */}
       <div className="space-y-3 mb-5">
-        {items.map(({ label, item }, index) => (
+        {items.map(({ key, label, item }: { key: string; label: string; item: any }, index: number) => (
           <div key={index} className="flex items-center gap-3">
             <div 
-              className="w-10 h-10 rounded-lg flex-shrink-0 border border-gray-100"
-              style={{ backgroundColor: item.color || '#f1f5f9' }}
-            />
+              className="w-10 h-10 rounded-lg flex-shrink-0 border border-gray-100 flex items-center justify-center text-lg"
+              style={{ 
+                backgroundColor: item.color && item.color.startsWith('#') ? item.color : '#f1f5f9'
+              }}
+            >
+              {getItemIcon(key)}
+            </div>
             <div className="flex-1 min-w-0">
               <div className="text-xs text-gray-400">{label}</div>
               <div className="font-medium text-gray-900 truncate">{item.name}</div>
@@ -1303,13 +1320,49 @@ function ShareCard({
         ))}
       </div>
       
-      {/* 推荐理由 */}
-      {recommendation.reasoning && (
+      {/* 推荐理由 - 使用 reasoningData 组装多语言文本 */}
+      {recommendation.reasoningData && (
         <div 
           className="rounded-xl p-4 mb-5"
           style={{ backgroundColor: '#f8fafc' }}
         >
-          <p className="text-sm text-gray-600 leading-relaxed">{recommendation.reasoning}</p>
+          <p className="text-sm text-gray-600 leading-relaxed">
+            {(() => {
+              const data = recommendation.reasoningData!;
+              const parts: string[] = [];
+              
+              // 层数信息
+              if (data.layerCount && data.layerTypes) {
+                const layerNames: Record<string, string> = {
+                  base: t('outfit.reasoning.layerBase'),
+                  mid: t('outfit.reasoning.layerMid'),
+                  outer: t('outfit.reasoning.layerOuter')
+                };
+                const layerDesc = data.layerTypes.map((t: string) => layerNames[t] || t).join('+');
+                parts.push(`${data.layerCount}${isZh ? '层' : ' layers'}(${layerDesc})`);
+              }
+              
+              // 保暖覆盖率
+              if (data.coverage !== undefined) {
+                parts.push(t('outfit.reasoning.coverage', { coverage: data.coverage }));
+              }
+              
+              // 场景和目标温度
+              const sceneLabel = data.scene === 'commute' 
+                ? t('scene.commute')
+                : data.runType 
+                  ? t(`runType.${data.runType}`)
+                  : t('scene.running');
+              parts.push(t('outfit.reasoning.target', { scene: sceneLabel, temp: data.targetTemp }));
+              
+              // 雨天提示
+              if (data.isRaining) {
+                parts.push(t('outfit.reasoning.rain'));
+              }
+              
+              return parts.join(' · ');
+            })()}
+          </p>
         </div>
       )}
       
