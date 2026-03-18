@@ -1145,8 +1145,8 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
       
       {/* 分享弹窗 */}
       {showShareModal && (
-        <div className="fixed inset-0 bg-background/90 backdrop-blur-sm z-50 flex items-start justify-center pt-20 pb-4 px-4 animate-fade-in overflow-y-auto">
-          <Card className="w-full max-w-sm overflow-hidden shadow-2xl my-auto">
+        <div className="fixed inset-0 bg-background/90 backdrop-blur-sm z-[100] flex items-start justify-center pt-16 pb-24 px-4 animate-fade-in overflow-y-auto">
+          <Card className="w-full max-w-sm overflow-hidden shadow-2xl">
             <div className="p-4 border-b border-border flex items-center justify-between">
               <h3 className="font-medium">{t('share.title')}</h3>
               <Button variant="ghost" size="icon" onClick={() => setShowShareModal(false)}>
@@ -1224,13 +1224,25 @@ function ShareCard({
   
   // 获取场景标签 - 使用多语言
   const getSceneLabel = () => {
+    const icon = recommendation.outfit.scene === 'commute' ? '🚶' : '🏃';
+    let text = '';
     if (recommendation.outfit.scene === 'commute') {
-      return `🚶 ${t('scene.commute')}`;
+      text = t('scene.commute');
+    } else if (recommendation.outfit.runType === 'easy') {
+      text = t('runType.easy');
+    } else if (recommendation.outfit.runType === 'long') {
+      text = t('runType.long');
+    } else if (recommendation.outfit.runType === 'interval') {
+      text = t('runType.interval');
+    } else {
+      text = t('scene.running');
     }
-    if (recommendation.outfit.runType === 'easy') return `🏃 ${t('runType.easy')}`;
-    if (recommendation.outfit.runType === 'long') return `🏃 ${t('runType.long')}`;
-    if (recommendation.outfit.runType === 'interval') return `🏃 ${t('runType.interval')}`;
-    return `🏃 ${t('scene.running')}`;
+    return (
+      <>
+        <span className="inline-block" style={{ transform: 'translateY(-1px)' }}>{icon}</span>
+        <span className="ml-1">{text}</span>
+      </>
+    );
   };
   
   // 衣物类别标签 - 使用多语言
@@ -1288,8 +1300,8 @@ function ShareCard({
       {/* 场景标签 - 修复背景色 */}
       <div className="flex items-center gap-2 mb-5">
         <span 
-          className="inline-flex items-center justify-center px-3 py-1.5 text-sm rounded-full font-medium leading-normal"
-          style={{ backgroundColor: '#1e293b', color: 'white' }}
+          className="inline-flex items-center justify-center px-3 h-8 text-sm rounded-full font-medium"
+          style={{ backgroundColor: '#1e293b', color: 'white', lineHeight: '1' }}
         >
           {getSceneLabel()}
         </span>
