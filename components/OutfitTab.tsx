@@ -500,12 +500,21 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
       // 生成分享图片
       if (shareCardRef.current) {
         const html2canvas = (await import('html2canvas')).default;
+        
+        // 临时显示元素以便截图
+        const originalOpacity = shareCardRef.current.style.opacity;
+        shareCardRef.current.style.opacity = '1';
+        
         const canvas = await html2canvas(shareCardRef.current, {
           backgroundColor: '#ffffff',
           scale: 2,
           useCORS: true,
           logging: false,
+          removeContainer: false,
         });
+        
+        // 恢复隐藏
+        shareCardRef.current.style.opacity = originalOpacity;
         
         const dataUrl = canvas.toDataURL('image/png');
         setShareImageUrl(dataUrl);
@@ -1180,8 +1189,15 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
       {showShareModal && recommendation && weather && (
         <div 
           ref={shareCardRef}
-          className="fixed -left-[9999px] top-0 bg-background"
-          style={{ position: 'fixed', left: '-9999px', top: '0' }}
+          className="fixed bg-white"
+          style={{ 
+            position: 'fixed', 
+            left: '0', 
+            top: '0', 
+            opacity: '0',
+            pointerEvents: 'none',
+            zIndex: '-1'
+          }}
         >
           <ShareCard 
             recommendation={recommendation} 
