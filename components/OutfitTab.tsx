@@ -1145,10 +1145,10 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
       
       {/* 分享弹窗 */}
       {showShareModal && (
-        <div className="fixed inset-0 bg-background/90 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-          <Card className="w-full max-w-sm overflow-hidden shadow-2xl">
+        <div className="fixed inset-0 bg-background/90 backdrop-blur-sm z-50 flex items-start justify-center pt-20 pb-4 px-4 animate-fade-in overflow-y-auto">
+          <Card className="w-full max-w-sm overflow-hidden shadow-2xl my-auto">
             <div className="p-4 border-b border-border flex items-center justify-between">
-              <h3 className="font-medium">分享穿搭</h3>
+              <h3 className="font-medium">{t('share.title')}</h3>
               <Button variant="ghost" size="icon" onClick={() => setShowShareModal(false)}>
                 <XIcon />
               </Button>
@@ -1157,12 +1157,12 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
               {generatingShare ? (
                 <div className="flex flex-col items-center justify-center py-12">
                   <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin mb-3" />
-                  <p className="text-sm text-muted-foreground">正在生成分享卡片...</p>
+                  <p className="text-sm text-muted-foreground">{t('share.generating')}</p>
                 </div>
               ) : shareImageUrl ? (
                 <div className="space-y-4">
-                  <div className="rounded-xl overflow-hidden border border-border shadow-sm">
-                    <img src={shareImageUrl} alt="分享卡片" className="w-full h-auto" />
+                  <div className="rounded-xl overflow-hidden border border-border shadow-sm max-h-[60vh] overflow-y-auto">
+                    <img src={shareImageUrl} alt="分享卡片" className="w-full h-auto block" />
                   </div>
                   <div className="space-y-2">
                     <Button onClick={handleSaveImage} className="w-full">
@@ -1288,14 +1288,17 @@ function ShareCard({
       {/* 场景标签 - 修复背景色 */}
       <div className="flex items-center gap-2 mb-5">
         <span 
-          className="px-3 py-1.5 text-sm rounded-full font-medium"
+          className="inline-flex items-center justify-center px-3 py-1.5 text-sm rounded-full font-medium leading-normal"
           style={{ backgroundColor: '#1e293b', color: 'white' }}
         >
           {getSceneLabel()}
         </span>
         {recommendation.reasoningData && (
           <span className="text-sm text-gray-500">
-            {t('outfit.reasoning.target', { temp: recommendation.reasoningData.targetTemp })}
+            {t('outfit.reasoning.target', { 
+              scene: recommendation.outfit.scene === 'commute' ? t('scene.commute') : t('scene.running'),
+              temp: recommendation.reasoningData.targetTemp 
+            })}
           </span>
         )}
       </div>
@@ -1313,8 +1316,8 @@ function ShareCard({
               {getItemIcon(key)}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-xs text-gray-400">{label}</div>
-              <div className="font-medium text-gray-900 truncate">{item.name}</div>
+              <div className="text-xs text-gray-400 leading-normal">{label}</div>
+              <div className="font-medium text-gray-900 leading-normal">{item.name}</div>
             </div>
           </div>
         ))}

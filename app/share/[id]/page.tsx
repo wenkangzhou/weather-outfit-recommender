@@ -125,7 +125,10 @@ export default function SharePage() {
               </span>
               {outfit.reasoningData && (
                 <span className="text-xs text-muted-foreground">
-                  {t('outfit.reasoning.target', { temp: outfit.reasoningData.targetTemp })}
+                  {t('outfit.reasoning.target', { 
+                    scene: outfit.outfit.scene === 'commute' ? t('scene.commute') : t('scene.running'),
+                    temp: outfit.reasoningData.targetTemp 
+                  })}
                 </span>
               )}
             </div>
