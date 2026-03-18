@@ -81,24 +81,25 @@ export default function SharePage() {
   return (
     <main className="min-h-screen bg-background">
       <div className="max-w-md mx-auto px-5 py-8">
-        {/* Header */}
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full text-sm text-primary mb-3">
+        {/* 朋友分享的标签 */}
+        <div className="flex justify-center mb-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full text-sm text-primary">
             <MapPin size={14} />
             {t('share.fromFriend')}
           </div>
-          <h1 className="text-2xl font-bold">
-            {location} · {Math.round(weather.temp)}°C
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            {new Date().toLocaleDateString(isZh ? 'zh-CN' : 'en-US', { month: 'long', day: 'numeric' })}
-          </p>
         </div>
 
         {/* 穿搭卡片 */}
         <Card className="overflow-hidden mb-6">
           {/* 天气信息 */}
           <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-4">
+            {/* 城市和日期 */}
+            <div className="flex items-center justify-between mb-3">
+              <span className="font-medium">{location}</span>
+              <span className="text-blue-100 text-sm">
+                {new Date().toLocaleDateString(isZh ? 'zh-CN' : 'en-US', { month: 'long', day: 'numeric' })}
+              </span>
+            </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Cloud size={32} />
