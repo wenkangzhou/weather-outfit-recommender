@@ -501,6 +501,9 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
       if (shareCardRef.current) {
         const html2canvas = (await import('html2canvas')).default;
         
+        // 临时显示以便截图
+        shareCardRef.current.style.visibility = 'visible';
+        
         const canvas = await html2canvas(shareCardRef.current, {
           allowTaint: true,
           useCORS: true,
@@ -513,6 +516,9 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
           x: 0,
           y: 0,
         });
+        
+        // 恢复隐藏
+        shareCardRef.current.style.visibility = 'hidden';
         
         const dataUrl = canvas.toDataURL('image/png');
         setShareImageUrl(dataUrl);
@@ -1192,9 +1198,9 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
             position: 'fixed', 
             left: '0', 
             top: '0', 
-            opacity: '0',
+            visibility: 'hidden',
             pointerEvents: 'none',
-            zIndex: '-1'
+            zIndex: '9999'
           }}
         >
           <ShareCard 
