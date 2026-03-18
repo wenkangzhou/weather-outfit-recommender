@@ -501,20 +501,18 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
       if (shareCardRef.current) {
         const html2canvas = (await import('html2canvas')).default;
         
-        // 临时显示元素以便截图
-        const originalOpacity = shareCardRef.current.style.opacity;
-        shareCardRef.current.style.opacity = '1';
-        
         const canvas = await html2canvas(shareCardRef.current, {
+          allowTaint: true,
+          useCORS: true,
           backgroundColor: '#ffffff',
           scale: 2,
-          useCORS: true,
-          logging: false,
-          removeContainer: false,
+          width: 375,
+          height: shareCardRef.current.offsetHeight,
+          windowWidth: 375,
+          windowHeight: shareCardRef.current.offsetHeight,
+          x: 0,
+          y: 0,
         });
-        
-        // 恢复隐藏
-        shareCardRef.current.style.opacity = originalOpacity;
         
         const dataUrl = canvas.toDataURL('image/png');
         setShareImageUrl(dataUrl);
