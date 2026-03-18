@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { OutfitRecommendation, WeatherData } from '@/types';
+import { getOutfitShare } from '@/lib/supabase';
 import { Cloud, Wind, Droplets, MapPin, ArrowRight } from 'lucide-react';
 import '@/i18n';
 
@@ -24,22 +25,25 @@ export default function SharePage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const id = params.id as string;
-    
-    // 从 localStorage 读取分享数据（key 就是 id 本身）
-    const stored = localStorage.getItem(id);
-    console.log('[SharePage] Looking for key:', id, 'found:', !!stored);
-    
-    if (stored) {
-      try {
-        const data = JSON.parse(stored);
-        console.log('[SharePage] Loaded data:', data);
-        setShareData(data);
-      } catch (e) {
-        console.error('[SharePage] Failed to parse share data:', e);
+    const loadShare = async () => {
+      const id = params.id as string;
+      
+      // 从数据库获取分享数据
+      const data = await getOutfitShare(id);
+      console.log('[SharePage] Loaded from DB:', id, !!data);
+      
+      if (data) {
+        setShareData({
+          outfit: data.outfit,
+          weather: data.weather,
+          location: data.location,
+          createdAt: data.createdAt,
+        });
       }
-    }
-    setLoading(false);
+      setLoading(false);
+    };
+    
+    loadShare();
   }, [params.id]);
 
   const handleViewMyCity = () => {

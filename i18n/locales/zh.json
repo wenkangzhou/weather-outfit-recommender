@@ -134,12 +134,16 @@
     "saveImage": "保存图片到相册",
     "linkCopied": "分享链接已复制",
     "saveImageHint": "图片已生成，可以粘贴链接或保存图片分享",
+    "linkPasteHint": "链接已复制到剪贴板，可直接粘贴分享",
     "scanToView": "扫码查看穿搭",
     "expired": "分享已过期",
     "expiredDesc": "这套穿搭分享链接已失效，来生成你自己的穿搭吧",
     "goHome": "去首页看看",
     "viewMyCity": "查看我的城市穿搭",
-    "fromFriend": "朋友分享的穿搭"
+    "fromFriend": "朋友分享的穿搭",
+    "refresh": "重新推荐",
+    "confirm": "确认穿搭",
+    "history": "历史穿搭"
   },
   "tags": {
     "running": "跑步",

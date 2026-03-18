@@ -8,7 +8,7 @@ import { MapPin, RefreshCw, ChevronDown, Wind, Droplets, Plus, Shirt, Check, His
 import { ClothingItem, WeatherData, OutfitRecommendation, OutfitScene, UserPreferences, RunType } from '@/types';
 import { getMockWeather } from '@/lib/weather';
 import { generateRecommendation } from '@/lib/recommendation';
-import { getClothingItems, getUserPreferences, saveUserPreferences, saveOutfitToHistory, addClothingItem } from '@/lib/supabase';
+import { getClothingItems, getUserPreferences, saveUserPreferences, saveOutfitToHistory, addClothingItem, saveOutfitShare } from '@/lib/supabase';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import ClothingCard from './ClothingCard';
@@ -483,18 +483,16 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
     setGeneratingShare(true);
     
     try {
-      // 生成唯一分享 ID 并保存到 ref
-      const shareId = `share_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      shareIdRef.current = shareId;
-      
-      // 保存分享数据到 localStorage
+      // 先保存到数据库获取真实 ID
       const shareData = {
         outfit: recommendation,
         weather,
         location: weather.cityName || preferences?.location || (i18n.language === 'zh' ? '未知位置' : 'Unknown'),
         createdAt: new Date().toISOString(),
       };
-      localStorage.setItem(shareId, JSON.stringify(shareData));
+      
+      const saved = await saveOutfitShare(shareData);
+      shareIdRef.current = saved.id;
       
       // 等待分享卡片渲染完成（给 QRCode 生成时间）
       await new Promise(resolve => setTimeout(resolve, 300));
@@ -513,12 +511,12 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
         setShareImageUrl(dataUrl);
         
         // 复制链接到剪贴板
-        const shareUrl = `${window.location.origin}/share/${shareId}`;
+        const shareUrl = `${window.location.origin}/share/${saved.id}`;
         await navigator.clipboard.writeText(shareUrl);
         
         toast({ 
-          title: t('share.linkCopied') || '分享链接已复制',
-          description: t('share.saveImageHint') || '图片已生成，可以粘贴链接或保存图片分享' 
+          title: t('share.linkCopied'),
+          description: t('share.saveImageHint')
         });
       }
     } catch (error) {
@@ -1091,7 +1089,7 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
                 className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-full shadow-lg text-sm font-medium hover:bg-slate-700 transition-all whitespace-nowrap"
               >
                 <RefreshCw size={16} />
-                重新推荐
+                {t('share.refresh')}
               </button>
             <button
               onClick={() => {
@@ -1102,7 +1100,7 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
               className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-full shadow-lg text-sm font-medium hover:bg-slate-700 transition-all disabled:opacity-50 whitespace-nowrap"
             >
               {saving ? <RefreshCw size={16} className="animate-spin" /> : <Check size={16} />}
-              确认穿搭
+              {t('share.confirm')}
             </button>
             <button
               onClick={() => {
@@ -1112,14 +1110,14 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
               className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-full shadow-lg text-sm font-medium hover:bg-slate-700 transition-all whitespace-nowrap"
             >
               <History size={16} />
-              历史穿搭
+              {t('share.history')}
             </button>
             <button
               onClick={handleShare}
               className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-full shadow-lg text-sm font-medium hover:bg-slate-700 transition-all whitespace-nowrap"
             >
               <Share2 size={16} />
-              分享穿搭
+              {t('share.title')}
             </button>
           </div>
         )}
@@ -1145,11 +1143,10 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
       
       {/* 分享弹窗 */}
       {showShareModal && (
-        <div className="fixed inset-0 bg-background/90 backdrop-blur-sm z-[100] flex items-start justify-center pt-16 pb-24 px-4 animate-fade-in overflow-y-auto">
+        <div className="fixed inset-0 bg-background/90 backdrop-blur-sm z-[100] flex items-start justify-center pt-12 pb-24 px-4 animate-fade-in overflow-y-auto">
           <Card className="w-full max-w-sm overflow-hidden shadow-2xl">
-            <div className="p-4 border-b border-border flex items-center justify-between">
-              <h3 className="font-medium">{t('share.title')}</h3>
-              <Button variant="ghost" size="icon" onClick={() => setShowShareModal(false)}>
+            <div className="p-3 border-b border-border flex items-center justify-end">
+              <Button variant="ghost" size="icon" onClick={() => setShowShareModal(false)} className="h-8 w-8">
                 <XIcon />
               </Button>
             </div>
@@ -1166,10 +1163,10 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
                   </div>
                   <div className="space-y-2">
                     <Button onClick={handleSaveImage} className="w-full">
-                      保存图片到相册
+                      {t('share.saveImage')}
                     </Button>
                     <p className="text-xs text-center text-muted-foreground">
-                      链接已复制到剪贴板，可直接粘贴分享
+                      {t('share.linkPasteHint')}
                     </p>
                   </div>
                 </div>
@@ -1299,12 +1296,12 @@ function ShareCard({
       
       {/* 场景标签 - 修复背景色 */}
       <div className="flex items-center gap-2 mb-5">
-        <span 
-          className="inline-flex items-center justify-center px-3 h-8 text-sm rounded-full font-medium"
-          style={{ backgroundColor: '#1e293b', color: 'white', lineHeight: '1' }}
+        <div 
+          className="flex items-center justify-center h-8 text-sm rounded-full font-medium"
+          style={{ backgroundColor: '#1e293b', color: 'white' }}
         >
           {getSceneLabel()}
-        </span>
+        </div>
         {recommendation.reasoningData && (
           <span className="text-sm text-gray-500">
             {t('outfit.reasoning.target', { 
@@ -1320,14 +1317,14 @@ function ShareCard({
         {items.map(({ key, label, item }: { key: string; label: string; item: any }, index: number) => (
           <div key={index} className="flex items-center gap-3">
             <div 
-              className="w-10 h-10 rounded-lg flex-shrink-0 border border-gray-100 flex items-center justify-center text-lg"
+              className="w-10 h-10 rounded-lg flex-shrink-0 border border-gray-100 flex items-center justify-center"
               style={{ 
                 backgroundColor: item.color && item.color.startsWith('#') ? item.color : '#f1f5f9'
               }}
             >
               {getItemIcon(key)}
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="flex flex-col">
               <div className="text-xs text-gray-400 leading-normal">{label}</div>
               <div className="font-medium text-gray-900 leading-normal">{item.name}</div>
             </div>
@@ -1341,7 +1338,7 @@ function ShareCard({
           className="rounded-xl p-4 mb-5"
           style={{ backgroundColor: '#f8fafc' }}
         >
-          <p className="text-sm text-gray-600 leading-relaxed">
+          <span className="text-sm text-gray-600 leading-relaxed">
             {(() => {
               const data = recommendation.reasoningData!;
               const parts: string[] = [];
@@ -1377,7 +1374,7 @@ function ShareCard({
               
               return parts.join(' · ');
             })()}
-          </p>
+          </span>
         </div>
       )}
       

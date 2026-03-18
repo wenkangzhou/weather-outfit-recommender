@@ -134,12 +134,16 @@
     "saveImage": "Save Image",
     "linkCopied": "Link copied",
     "saveImageHint": "Image generated. Paste the link or save the image to share",
+    "linkPasteHint": "Link copied to clipboard. Paste to share",
     "scanToView": "Scan to view",
     "expired": "Share Expired",
     "expiredDesc": "This outfit share link has expired. Generate your own outfit!",
     "goHome": "Go to Home",
     "viewMyCity": "View for My City",
-    "fromFriend": "Shared by Friend"
+    "fromFriend": "Shared by Friend",
+    "refresh": "Refresh",
+    "confirm": "Save Outfit",
+    "history": "History"
   },
   "tags": {
     "running": "Running",

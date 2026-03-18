@@ -809,3 +809,92 @@ export async function uploadClothingImage(file: File): Promise<string> {
   const { data } = supabase.storage.from('clothing-images').getPublicUrl(fileName);
   return data.publicUrl;
 }
+
+// ============================================
+// Outfit Share API
+// ============================================
+
+export interface ShareData {
+  id: string;
+  outfit: any;
+  weather: any;
+  location: string;
+  createdAt: string;
+}
+
+export async function saveOutfitShare(shareData: Omit<ShareData, 'id'>): Promise<ShareData> {
+  const { tempUserId, userId } = getUserContext();
+  
+  if (!isConfigured || !supabase) {
+    // Fallback to localStorage in demo mode
+    const id = `share_${Date.now()}`;
+    const data = { ...shareData, id };
+    localStorage.setItem(id, JSON.stringify(data));
+    return data;
+  }
+  
+  const insertData: any = {
+    outfit_data: shareData.outfit,
+    weather_data: shareData.weather,
+    location: shareData.location,
+    created_at: shareData.createdAt,
+  };
+  
+  if (userId) {
+    insertData.user_id = userId;
+  } else if (tempUserId) {
+    insertData.temp_user_id = tempUserId;
+  }
+  
+  const { data, error } = await supabase
+    .from('outfit_shares')
+    .insert([insertData])
+    .select()
+    .limit(1);
+  
+  if (error) {
+    console.error('saveOutfitShare error:', error);
+    throw error;
+  }
+  
+  const record = first(data as any[]);
+  if (!record) throw new Error('Insert failed');
+  
+  return {
+    id: record.id,
+    outfit: record.outfit_data,
+    weather: record.weather_data,
+    location: record.location,
+    createdAt: record.created_at,
+  };
+}
+
+export async function getOutfitShare(id: string): Promise<ShareData | null> {
+  if (!isConfigured || !supabase) {
+    // Fallback to localStorage in demo mode
+    const stored = localStorage.getItem(id);
+    return stored ? JSON.parse(stored) : null;
+  }
+  
+  const { data, error } = await supabase
+    .from('outfit_shares')
+    .select('*')
+    .eq('id', id)
+    .limit(1);
+  
+  if (error) {
+    console.error('getOutfitShare error:', error);
+    return null;
+  }
+  
+  const record = first(data as any[]);
+  if (!record) return null;
+  
+  return {
+    id: record.id,
+    outfit: record.outfit_data,
+    weather: record.weather_data,
+    location: record.location,
+    createdAt: record.created_at,
+  };
+}
