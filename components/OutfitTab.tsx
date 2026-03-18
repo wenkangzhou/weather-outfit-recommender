@@ -121,9 +121,6 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
   
   // 分享相关状态
   const [showShareModal, setShowShareModal] = useState(false);
-  const [shareImageUrl, setShareImageUrl] = useState<string | null>(null);
-  const [generatingShare, setGeneratingShare] = useState(false);
-  const shareCardRef = useRef<HTMLDivElement>(null);
   const shareIdRef = useRef<string>('');
 
   // 客户端挂载状态
@@ -480,10 +477,9 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
     
     setShowActionMenu(false);
     setShowShareModal(true);
-    setGeneratingShare(true);
     
     try {
-      // 先保存到数据库获取真实 ID
+      // 保存到数据库获取真实 ID
       const shareData = {
         outfit: recommendation,
         weather,
@@ -494,66 +490,22 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
       const saved = await saveOutfitShare(shareData);
       shareIdRef.current = saved.id;
       
-      // 等待分享卡片渲染完成（给 QRCode 生成时间）
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // 复制链接到剪贴板
+      const shareUrl = `${window.location.origin}/share/${saved.id}`;
+      await navigator.clipboard.writeText(shareUrl);
       
-      // 生成分享图片
-      if (shareCardRef.current) {
-        const html2canvas = (await import('html2canvas')).default;
-        
-        // 临时显示以便截图
-        shareCardRef.current.style.visibility = 'visible';
-        
-        const canvas = await html2canvas(shareCardRef.current, {
-          allowTaint: true,
-          useCORS: true,
-          backgroundColor: '#ffffff',
-          scale: 2,
-          width: 375,
-          height: shareCardRef.current.offsetHeight,
-          windowWidth: 375,
-          windowHeight: shareCardRef.current.offsetHeight,
-          x: 0,
-          y: 0,
-        });
-        
-        // 恢复隐藏
-        shareCardRef.current.style.visibility = 'hidden';
-        
-        const dataUrl = canvas.toDataURL('image/png');
-        setShareImageUrl(dataUrl);
-        
-        // 复制链接到剪贴板
-        const shareUrl = `${window.location.origin}/share/${saved.id}`;
-        await navigator.clipboard.writeText(shareUrl);
-        
-        toast({ 
-          title: t('share.linkCopied'),
-          description: t('share.saveImageHint')
-        });
-      }
+      toast({ 
+        title: t('share.linkCopied'),
+        description: t('share.linkPasteHint')
+      });
     } catch (error) {
-      console.error('Failed to generate share:', error);
+      console.error('Failed to share:', error);
       toast({
-        title: '生成分享失败',
+        title: '分享失败',
         description: '请稍后重试',
         variant: 'destructive',
       });
-    } finally {
-      setGeneratingShare(false);
     }
-  };
-  
-  // 保存分享图片
-  const handleSaveImage = () => {
-    if (!shareImageUrl) return;
-    
-    const link = document.createElement('a');
-    link.download = `weather-style-${Date.now()}.png`;
-    link.href = shareImageUrl;
-    link.click();
-    
-    toast({ title: '图片已保存到相册' });
   };
 
   // 组装推荐理由（支持 i18n）- 使用 useMemo 缓存
@@ -1154,8 +1106,8 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
         document.body
       )}
       
-      {/* 分享弹窗 */}
-      {showShareModal && (
+      {/* 分享弹窗 - 直接展示 DOM 卡片 */}
+      {showShareModal && recommendation && weather && (
         <div className="fixed inset-0 bg-background/90 backdrop-blur-sm z-[100] flex items-start justify-center pt-12 pb-24 px-4 animate-fade-in overflow-y-auto">
           <Card className="w-full max-w-sm overflow-hidden shadow-2xl">
             <div className="p-2 flex items-center justify-end">
@@ -1163,52 +1115,24 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
                 <XIcon />
               </Button>
             </div>
-            <div className="p-4">
-              {generatingShare ? (
-                <div className="flex flex-col items-center justify-center py-12">
-                  <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin mb-3" />
-                  <p className="text-sm text-muted-foreground">{t('share.generating')}</p>
-                </div>
-              ) : shareImageUrl ? (
-                <div className="space-y-4">
-                  <div className="rounded-xl overflow-hidden border border-border shadow-sm max-h-[60vh] overflow-y-auto">
-                    <img src={shareImageUrl} alt="分享卡片" className="w-full h-auto block" />
-                  </div>
-                  <div className="space-y-2">
-                    <Button onClick={handleSaveImage} className="w-full">
-                      {t('share.saveImage')}
-                    </Button>
-                    <p className="text-xs text-center text-muted-foreground">
-                      {t('share.linkPasteHint')}
-                    </p>
-                  </div>
-                </div>
-              ) : null}
+            <div className="p-4 space-y-4">
+              {/* 直接渲染分享卡片 DOM */}
+              <div className="rounded-xl overflow-hidden border border-border shadow-sm">
+                <ShareCard 
+                  recommendation={recommendation} 
+                  weather={weather} 
+                  location={weather.cityName || preferences?.location || (typeof window !== 'undefined' && i18n.language === 'zh' ? '未知位置' : 'Unknown')}
+                  shareUrl={`${typeof window !== 'undefined' ? window.location.origin : ''}/share/${shareIdRef.current || ''}`}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <p className="text-xs text-center text-muted-foreground">
+                  {t('share.linkPasteHint')}
+                </p>
+              </div>
             </div>
           </Card>
-        </div>
-      )}
-      
-      {/* 隐藏的分享卡片（用于截图） */}
-      {showShareModal && recommendation && weather && (
-        <div 
-          ref={shareCardRef}
-          className="fixed bg-white"
-          style={{ 
-            position: 'fixed', 
-            left: '0', 
-            bottom: '0', 
-            visibility: 'hidden',
-            pointerEvents: 'none',
-            zIndex: '-99'
-          }}
-        >
-          <ShareCard 
-            recommendation={recommendation} 
-            weather={weather} 
-            location={weather.cityName || preferences?.location || (typeof window !== 'undefined' && i18n.language === 'zh' ? '未知位置' : 'Unknown')}
-            shareUrl={`${typeof window !== 'undefined' ? window.location.origin : ''}/share/${shareIdRef.current || ''}`}
-          />
         </div>
       )}
     </div>
@@ -1299,7 +1223,7 @@ function ShareCard({
   ];
   
   return (
-    <div className="bg-white p-5" style={{ width: '375px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+    <div className="bg-white p-5" style={{ width: '375px', height: '519px', position: 'relative', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
