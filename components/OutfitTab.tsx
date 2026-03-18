@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import { MapPin, RefreshCw, ChevronDown, Wind, Droplets, Plus, Shirt, Check, History, X } from 'lucide-react';
+import { MapPin, RefreshCw, ChevronDown, Wind, Droplets, Plus, Shirt, Check, History, X, Share2 } from 'lucide-react';
 import { ClothingItem, WeatherData, OutfitRecommendation, OutfitScene, UserPreferences, RunType } from '@/types';
 import { getMockWeather } from '@/lib/weather';
 import { generateRecommendation } from '@/lib/recommendation';
@@ -118,6 +118,12 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
   
   // 推荐组合索引（用于"重新推荐"时轮换不同组合）
   const [combinationIndex, setCombinationIndex] = useState(0);
+  
+  // 分享相关状态
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareImageUrl, setShareImageUrl] = useState<string | null>(null);
+  const [generatingShare, setGeneratingShare] = useState(false);
+  const shareCardRef = useRef<HTMLDivElement>(null);
 
   // 客户端挂载状态
   const [mounted, setMounted] = useState(false);
@@ -466,6 +472,75 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
   };
 
   const wardrobeStatus = checkWardrobeCompleteness(allItems);
+  
+  // 分享穿搭
+  const handleShare = async () => {
+    if (!recommendation || !weather) return;
+    
+    setShowActionMenu(false);
+    setShowShareModal(true);
+    setGeneratingShare(true);
+    
+    try {
+      // 生成唯一分享 ID
+      const shareId = `share_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // 保存分享数据到 localStorage
+      const shareData = {
+        outfit: recommendation,
+        weather,
+        location: weather.cityName || preferences?.location || '未知位置',
+        createdAt: new Date().toISOString(),
+      };
+      localStorage.setItem(shareId, JSON.stringify(shareData));
+      
+      // 等待分享卡片渲染完成
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // 生成分享图片
+      if (shareCardRef.current) {
+        const html2canvas = (await import('html2canvas')).default;
+        const canvas = await html2canvas(shareCardRef.current, {
+          backgroundColor: null,
+          scale: 2,
+          useCORS: true,
+        });
+        
+        const dataUrl = canvas.toDataURL('image/png');
+        setShareImageUrl(dataUrl);
+        
+        // 复制链接到剪贴板
+        const shareUrl = `${window.location.origin}/share/${shareId}`;
+        await navigator.clipboard.writeText(shareUrl);
+        
+        toast({ 
+          title: '分享链接已复制',
+          description: '图片已生成，可以粘贴链接或保存图片分享' 
+        });
+      }
+    } catch (error) {
+      console.error('Failed to generate share:', error);
+      toast({
+        title: '生成分享失败',
+        description: '请稍后重试',
+        variant: 'destructive',
+      });
+    } finally {
+      setGeneratingShare(false);
+    }
+  };
+  
+  // 保存分享图片
+  const handleSaveImage = () => {
+    if (!shareImageUrl) return;
+    
+    const link = document.createElement('a');
+    link.download = `weather-style-${Date.now()}.png`;
+    link.href = shareImageUrl;
+    link.click();
+    
+    toast({ title: '图片已保存到相册' });
+  };
 
   // 组装推荐理由（支持 i18n）- 使用 useMemo 缓存
   const formattedReasoning = useMemo(() => {
@@ -1036,6 +1111,13 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
               <History size={16} />
               历史穿搭
             </button>
+            <button
+              onClick={handleShare}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-full shadow-lg text-sm font-medium hover:bg-slate-700 transition-all whitespace-nowrap"
+            >
+              <Share2 size={16} />
+              分享穿搭
+            </button>
           </div>
         )}
         
@@ -1057,6 +1139,163 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
         </div>,
         document.body
       )}
+      
+      {/* 分享弹窗 */}
+      {showShareModal && (
+        <div className="fixed inset-0 bg-background/90 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <Card className="w-full max-w-sm overflow-hidden shadow-2xl">
+            <div className="p-4 border-b border-border flex items-center justify-between">
+              <h3 className="font-medium">分享穿搭</h3>
+              <Button variant="ghost" size="icon" onClick={() => setShowShareModal(false)}>
+                <XIcon />
+              </Button>
+            </div>
+            <div className="p-4">
+              {generatingShare ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin mb-3" />
+                  <p className="text-sm text-muted-foreground">正在生成分享卡片...</p>
+                </div>
+              ) : shareImageUrl ? (
+                <div className="space-y-4">
+                  <div className="rounded-xl overflow-hidden border border-border shadow-sm">
+                    <img src={shareImageUrl} alt="分享卡片" className="w-full h-auto" />
+                  </div>
+                  <div className="space-y-2">
+                    <Button onClick={handleSaveImage} className="w-full">
+                      保存图片到相册
+                    </Button>
+                    <p className="text-xs text-center text-muted-foreground">
+                      链接已复制到剪贴板，可直接粘贴分享
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </Card>
+        </div>
+      )}
+      
+      {/* 隐藏的分享卡片（用于截图） */}
+      {showShareModal && recommendation && weather && (
+        <div 
+          ref={shareCardRef}
+          className="fixed -left-[9999px] top-0 w-[375px] bg-background"
+          style={{ position: 'absolute', left: '-9999px' }}
+        >
+          <ShareCard 
+            recommendation={recommendation} 
+            weather={weather} 
+            location={weather.cityName || preferences?.location || '未知位置'}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ===== Share Card Component =====
+
+function ShareCard({ 
+  recommendation, 
+  weather, 
+  location 
+}: { 
+  recommendation: OutfitRecommendation;
+  weather: WeatherData;
+  location: string;
+}) {
+  const { t } = useTranslation();
+  
+  // 获取天气图标
+  const getWeatherIcon = () => {
+    if (weather.isRaining) return '🌧️';
+    if (weather.weatherCode && weather.weatherCode >= 801) return '☁️';
+    if (weather.weatherCode && weather.weatherCode >= 800) return '☀️';
+    return '⛅';
+  };
+  
+  // 获取场景标签
+  const getSceneLabel = () => {
+    if (recommendation.outfit.scene === 'commute') return '🚶 通勤';
+    if (recommendation.outfit.runType === 'easy') return '🏃 有氧跑';
+    if (recommendation.outfit.runType === 'long') return '🏃 长距离';
+    if (recommendation.outfit.runType === 'interval') return '🏃 间歇跑';
+    return '🏃 跑步';
+  };
+  
+  const items = [
+    { label: '上衣', item: recommendation.outfit.top },
+    ...(recommendation.layeredTops?.slice(1).map((item, i) => ({ 
+      label: `叠穿 ${i + 2}`, 
+      item 
+    })) || []),
+    { label: '下装', item: recommendation.outfit.bottom },
+    { label: '袜子', item: recommendation.outfit.socks },
+    { label: '鞋子', item: recommendation.outfit.shoes },
+    ...(recommendation.outfit.hat ? [{ label: '帽子', item: recommendation.outfit.hat }] : []),
+  ];
+  
+  return (
+    <div className="bg-white p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <div className="text-2xl font-bold text-slate-900">{Math.round(weather.temp)}°</div>
+          <div className="text-sm text-slate-500">{location}</div>
+        </div>
+        <div className="text-right">
+          <div className="text-3xl">{getWeatherIcon()}</div>
+          <div className="text-xs text-slate-400 mt-1">
+            体感 {Math.round(weather.feelsLike)}°
+          </div>
+        </div>
+      </div>
+      
+      {/* 场景标签 */}
+      <div className="flex items-center gap-2 mb-4">
+        <span className="px-3 py-1 bg-slate-900 text-white text-sm rounded-full">
+          {getSceneLabel()}
+        </span>
+        {recommendation.reasoningData && (
+          <span className="text-sm text-slate-500">
+            目标 {recommendation.reasoningData.targetTemp}°C
+          </span>
+        )}
+      </div>
+      
+      {/* 衣物列表 */}
+      <div className="space-y-3 mb-4">
+        {items.map(({ label, item }, index) => (
+          <div key={index} className="flex items-center gap-3">
+            <div 
+              className="w-10 h-10 rounded-lg flex-shrink-0" 
+              style={{ backgroundColor: item.color || '#e2e8f0' }}
+            />
+            <div className="flex-1">
+              <div className="text-xs text-slate-400">{label}</div>
+              <div className="font-medium text-slate-900">{item.name}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      
+      {/* 推荐理由 */}
+      {recommendation.reasoning && (
+        <div className="bg-slate-50 rounded-xl p-3 mb-4">
+          <p className="text-sm text-slate-600">{recommendation.reasoning}</p>
+        </div>
+      )}
+      
+      {/* Footer */}
+      <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+        <div className="text-sm font-medium text-slate-900">
+          Weather Style
+        </div>
+        <div className="text-xs text-slate-400">
+          扫码查看我的穿搭
+        </div>
+      </div>
     </div>
   );
 }

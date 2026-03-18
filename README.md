@@ -156,6 +156,10 @@ NEXT_PUBLIC_AMAP_KEY=your-gaode-key
 ![设置页](https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAERa9ppp983fjedr3uZfn_XRb4KMxwTngACZxgAArXIQFUsy6tjHqNeHzoE.png)
 *切换主题、语言，管理默认跑步类型和账号*
 
+## TODO
+1. 增加[PM2.5](https://aqicn.org/data-platform/api/H6321/cn/)展示
+2. 跑步路线推荐，链接至[parco](https://parco.run/)
+
 ## License
 
 MIT
