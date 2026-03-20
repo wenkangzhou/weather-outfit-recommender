@@ -325,7 +325,7 @@ export default function SettingsTab() {
         <section>
           <div className="settings-section-title">
             <Sun size={16} className="text-orange-500" />
-            穿搭偏好
+            {t('settings.preference')}
           </div>
           
           {/* 目标温度设置 - 跳转到独立页面 */}
@@ -335,7 +335,7 @@ export default function SettingsTab() {
               className="w-full flex items-center justify-between p-4"
             >
               <div className="text-left">
-                <div className="font-medium">目标温度设置</div>
+                <div className="font-medium">{t('settings.temperatureTarget')}</div>
                 <div className="text-sm text-muted-foreground">
                   通勤 {commuteTargetTemp}°C / 跑 {easyRunTargetTemp}-{intervalRunTargetTemp}°C
                 </div>
@@ -346,7 +346,7 @@ export default function SettingsTab() {
 
           {/* 默认推荐场景 */}
           <Card className="settings-card">
-            <div className="settings-card-header">默认推荐场景</div>
+            <div className="settings-card-header">{t('settings.defaultScene')}</div>
             <div className="options-row">
               <OptionButton 
                 icon={<span>🚶</span>}

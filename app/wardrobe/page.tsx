@@ -522,7 +522,7 @@ function CategorySection({
                       )}
                       {item.isVirtual && (
                         <span className="text-[10px] px-1.5 py-0.5 bg-gradient-to-r from-amber-400 to-orange-400 text-white rounded font-medium">
-                          平台推荐
+                          {t('virtual.platformRecommended')}
                         </span>
                       )}
                     </div>

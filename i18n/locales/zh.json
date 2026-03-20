@@ -92,7 +92,10 @@
     "login": "登录",
     "register": "注册",
     "logout": "退出",
-    "guestDescription": "当前为访客模式，数据仅保存在当前设备。登录后可同步数据到云端。"
+    "guestDescription": "当前为访客模式，数据仅保存在当前设备。登录后可同步数据到云端。",
+    "preference": "穿搭偏好",
+    "temperatureTarget": "目标温度设置",
+    "defaultScene": "默认推荐场景"
   },
   "types": {
     "t-shirt": "T恤",
@@ -152,5 +155,12 @@
     "water": "防水",
     "wind": "防风",
     "pocket": "口袋"
+  },
+  "virtual": {
+    "platformRecommended": "平台推荐",
+    "addToWardrobe": "添加到衣柜",
+    "addedToWardrobe": "已添加到衣柜",
+    "virtualItemsNotice": "以下推荐包含平台示例衣物",
+    "virtualItemsDesc": "您可以点击「添加到衣柜」将喜欢的衣物保存到您的衣柜，或前往衣柜录入您自己的衣物"
   }
 }

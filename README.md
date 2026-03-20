@@ -63,6 +63,11 @@
 - **分析**: Vercel Analytics
 - **部署**: Vercel
 
+## 三方库
+
+- [天气API](https://home.openweathermap.org/)
+
+
 ## 快速开始
 
 ### 环境要求

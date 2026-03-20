@@ -92,7 +92,10 @@
     "login": "Login",
     "register": "Register",
     "logout": "Logout",
-    "guestDescription": "Guest mode: data stored locally. Login to sync to cloud."
+    "guestDescription": "Guest mode: data stored locally. Login to sync to cloud.",
+    "preference": "Outfit Preferences",
+    "temperatureTarget": "Temperature Target",
+    "defaultScene": "Default Scene"
   },
   "types": {
     "t-shirt": "T-Shirt",
@@ -152,5 +155,12 @@
     "water": "Water",
     "wind": "Wind",
     "pocket": "Pocket"
+  },
+  "virtual": {
+    "platformRecommended": "Platform Recommended",
+    "addToWardrobe": "Add to Wardrobe",
+    "addedToWardrobe": "Added to Wardrobe",
+    "virtualItemsNotice": "Includes platform sample items",
+    "virtualItemsDesc": "Click 'Add to Wardrobe' to save items you like, or go to Wardrobe to add your own clothes"
   }
 }

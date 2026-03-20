@@ -456,8 +456,8 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
       window.dispatchEvent(new Event('wardrobe-changed'));
       
       toast({ 
-        title: '已添加到衣柜',
-        description: '建议去「衣柜」修改为真实衣物名称',
+        title: t('virtual.addedToWardrobe'),
+        description: t('wardrobe.editSuggestion') || '建议去「衣柜」修改为真实衣物名称',
       });
     } catch (error) {
       console.error('Failed to add item:', error);
@@ -732,10 +732,10 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
               <span className="text-orange-500 text-lg">💡</span>
               <div className="flex-1">
                 <p className="text-xs text-orange-800 dark:text-orange-200 font-medium">
-                  以下推荐包含平台示例衣物
+                  {t('virtual.virtualItemsNotice')}
                 </p>
                 <p className="text-[10px] text-orange-600 dark:text-orange-400 mt-0.5">
-                  您可以点击「添加到衣柜」将喜欢的衣物保存到您的衣柜，或前往衣柜录入您自己的衣物
+                  {t('virtual.virtualItemsDesc')}
                 </p>
               </div>
             </div>
