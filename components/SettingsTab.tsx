@@ -337,7 +337,7 @@ export default function SettingsTab() {
               <div className="text-left">
                 <div className="font-medium">{t('settings.temperatureTarget')}</div>
                 <div className="text-sm text-muted-foreground">
-                  通勤 {commuteTargetTemp}°C / 跑 {easyRunTargetTemp}-{intervalRunTargetTemp}°C
+                  {t('scene.commute')} {commuteTargetTemp}°C / {t('scene.running')} {easyRunTargetTemp}-{intervalRunTargetTemp}°C
                 </div>
               </div>
               <ChevronRight size={18} className="text-muted-foreground" />
@@ -350,7 +350,7 @@ export default function SettingsTab() {
             <div className="options-row">
               <OptionButton 
                 icon={<span>🚶</span>}
-                label="通勤"
+                label={t('scene.commute')}
                 active={defaultScene === 'commute'}
                 onClick={() => {
                   setDefaultScene('commute');
@@ -359,7 +359,7 @@ export default function SettingsTab() {
               />
               <OptionButton 
                 icon={<span>🏃</span>}
-                label="跑步"
+                label={t('scene.running')}
                 active={defaultScene === 'running'}
                 onClick={() => {
                   setDefaultScene('running');

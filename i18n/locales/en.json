@@ -129,7 +129,8 @@
     "noHistory": "No outfit history yet"
   },
   "common": {
-    "loading": "Loading"
+    "loading": "Loading",
+    "add": "Add "
   },
   "share": {
     "title": "Share Outfit",

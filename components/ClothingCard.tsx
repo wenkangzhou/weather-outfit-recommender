@@ -38,7 +38,7 @@ export default function ClothingCard({
         onClick={onAdd}
       >
         <span className="text-2xl">{icon}</span>
-        <span className="text-sm text-muted-foreground">添加{label}</span>
+        <span className="text-sm text-muted-foreground">{t('common.add')}{label}</span>
       </div>
     );
   }

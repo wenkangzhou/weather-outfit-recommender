@@ -129,7 +129,8 @@
     "noHistory": "还没有穿搭记录"
   },
   "common": {
-    "loading": "加载中"
+    "loading": "加载中",
+    "add": "添加"
   },
   "share": {
     "title": "分享穿搭",
