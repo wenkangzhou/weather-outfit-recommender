@@ -88,7 +88,7 @@ export default function ClothingCard({
           
           {/* 虚拟衣物标识 */}
           {item.isVirtual && (
-            <span className="text-[10px] px-1.5 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded font-medium">
+            <span className="text-[10px] px-1.5 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded font-medium whitespace-nowrap">
               {t('virtual.platformRecommended')}
             </span>
           )}
@@ -125,7 +125,7 @@ export default function ClothingCard({
                 e.stopPropagation();
                 onAddToWardrobe();
               }}
-              className="px-3 py-1.5 text-xs text-orange-600 hover:text-orange-700 bg-orange-50 hover:bg-orange-100 dark:bg-orange-900/20 dark:hover:bg-orange-900/30 rounded-lg transition-colors font-medium"
+              className="px-3 py-1.5 text-xs text-orange-600 hover:text-orange-700 bg-orange-50 hover:bg-orange-100 dark:bg-orange-900/20 dark:hover:bg-orange-900/30 rounded-lg transition-colors font-medium whitespace-nowrap"
             >
               {t('virtual.addToWardrobe')}
             </button>
