@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { ClothingItem, Outfit, UserPreferences, ClothingCategory, ClothingSubCategory, OutfitHistoryItem, WeatherData } from '@/types';
-import { getCurrentUser, getOrCreateTempUserId } from './user';
+import { getCurrentUser } from './user';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -59,8 +59,8 @@ const first = <T>(data: T[] | null): T | null => {
 
 // Helper: get current user context for queries
 function getUserContext() {
-  const { tempUserId, userId } = getCurrentUser();
-  return { tempUserId, userId };
+  const { userId } = getCurrentUser();
+  return { userId };
 }
 
 // Database row types (use any for flexibility)
@@ -115,6 +115,7 @@ interface OutfitHistoryRow {
   worn_at: string;
   created_at: string;
   comfort_rating?: number;
+  thermal_feedback?: 'cold' | 'comfortable' | 'hot';
   notes?: string;
   scene?: 'commute' | 'running';
   run_type?: 'easy' | 'long' | 'interval';
@@ -122,21 +123,15 @@ interface OutfitHistoryRow {
 
 // API functions
 export async function getClothingItems(): Promise<ClothingItem[]> {
-  if (!isConfigured || !supabase) return getDemoItems();
-  
-  const { tempUserId, userId } = getUserContext();
+  const { userId } = getUserContext();
+  if (!isConfigured || !supabase || !userId) return getDemoItems();
   
   let query = supabase
     .from('clothing_items')
     .select('*')
     .order('created_at', { ascending: false });
   
-  // 根据用户类型过滤
-  if (userId) {
-    query = query.eq('user_id', userId);
-  } else if (tempUserId) {
-    query = query.eq('temp_user_id', tempUserId);
-  }
+  query = query.eq('user_id', userId);
   
   // 数据库没有 is_virtual 列，查询时排除
   query = query.select('id,name,category,sub_category,warmth_level,water_resistant,wind_resistant,usage,has_pockets,color,image_url,created_at,user_id,temp_user_id');
@@ -169,9 +164,9 @@ export async function getClothingItems(): Promise<ClothingItem[]> {
 }
 
 export async function addClothingItem(item: Omit<ClothingItem, 'id' | 'createdAt'>): Promise<ClothingItem> {
-  const { tempUserId, userId } = getUserContext();
+  const { userId } = getUserContext();
   
-  if (!isConfigured || !supabase) {
+  if (!isConfigured || !supabase || !userId) {
     const newItem: ClothingItem = {
       ...item,
       id: 'demo_' + Date.now(),
@@ -196,12 +191,8 @@ export async function addClothingItem(item: Omit<ClothingItem, 'id' | 'createdAt
     // 注意：数据库没有 is_virtual 列，不发送该字段
   };
   
-  // 添加用户标识
-  if (userId) {
-    insertData.user_id = userId;
-  } else if (tempUserId) {
-    insertData.temp_user_id = tempUserId;
-  }
+  insertData.user_id = userId;
+  insertData.temp_user_id = null;
   
   const { data, error } = await supabase
     .from('clothing_items')
@@ -239,9 +230,9 @@ export async function updateClothingItem(
   id: string, 
   updates: Partial<Omit<ClothingItem, 'id' | 'createdAt'>>
 ): Promise<ClothingItem> {
-  const { tempUserId, userId } = getUserContext();
+  const { userId } = getUserContext();
   
-  if (!isConfigured || !supabase) {
+  if (!isConfigured || !supabase || !userId) {
     const items = getDemoItems();
     const index = items.findIndex(item => item.id === id);
     if (index === -1) throw new Error('Item not found');
@@ -269,12 +260,7 @@ export async function updateClothingItem(
     .update(dbUpdates)
     .eq('id', id);
   
-  // 添加用户权限检查
-  if (userId) {
-    query = query.eq('user_id', userId);
-  } else if (tempUserId) {
-    query = query.eq('temp_user_id', tempUserId);
-  }
+  query = query.eq('user_id', userId);
   
   const { data, error } = await query.select().limit(1);
   
@@ -301,9 +287,9 @@ export async function updateClothingItem(
 }
 
 export async function deleteClothingItem(id: string): Promise<void> {
-  const { tempUserId, userId } = getUserContext();
+  const { userId } = getUserContext();
   
-  if (!isConfigured || !supabase) {
+  if (!isConfigured || !supabase || !userId) {
     setDemoItems(getDemoItems().filter(item => item.id !== id));
     return;
   }
@@ -313,12 +299,7 @@ export async function deleteClothingItem(id: string): Promise<void> {
     .delete()
     .eq('id', id);
   
-  // 添加用户权限检查
-  if (userId) {
-    query = query.eq('user_id', userId);
-  } else if (tempUserId) {
-    query = query.eq('temp_user_id', tempUserId);
-  }
+  query = query.eq('user_id', userId);
   
   const { error } = await query;
   
@@ -345,7 +326,7 @@ export interface SaveOutfitParams {
 }
 
 export async function saveOutfitToHistory(params: SaveOutfitParams): Promise<OutfitHistoryItem> {
-  const { tempUserId, userId } = getUserContext();
+  const { userId } = getUserContext();
   
   const historyItem: OutfitHistoryItem = {
     id: 'demo_' + Date.now(),
@@ -358,7 +339,7 @@ export async function saveOutfitToHistory(params: SaveOutfitParams): Promise<Out
     createdAt: new Date().toISOString(),
   };
 
-  if (!isConfigured || !supabase) {
+  if (!isConfigured || !supabase || !userId) {
     const history = getDemoOutfitHistory();
     setDemoOutfitHistory([historyItem, ...history]);
     return historyItem;
@@ -374,12 +355,8 @@ export async function saveOutfitToHistory(params: SaveOutfitParams): Promise<Out
     created_at: new Date().toISOString(),
   };
   
-  // 添加用户标识
-  if (userId) {
-    insertData.user_id = userId;
-  } else if (tempUserId) {
-    insertData.temp_user_id = tempUserId;
-  }
+  insertData.user_id = userId;
+  insertData.temp_user_id = null;
   
   const { data, error } = await supabase
     .from('outfit_history')
@@ -405,16 +382,15 @@ export async function saveOutfitToHistory(params: SaveOutfitParams): Promise<Out
     wornAt: record.worn_at,
     createdAt: record.created_at,
     comfortRating: record.comfort_rating,
+    thermalFeedback: record.thermal_feedback,
     notes: record.notes,
   };
 }
 
 export async function getOutfitHistory(): Promise<OutfitHistoryItem[]> {
-  const { tempUserId, userId } = getUserContext();
-  console.log('[getOutfitHistory] User context:', { userId, tempUserId });
+  const { userId } = getUserContext();
   
-  if (!isConfigured || !supabase) {
-    console.log('[getOutfitHistory] Demo mode');
+  if (!isConfigured || !supabase || !userId) {
     return getDemoOutfitHistory().sort((a, b) => 
       new Date(b.wornAt).getTime() - new Date(a.wornAt).getTime()
     );
@@ -425,12 +401,7 @@ export async function getOutfitHistory(): Promise<OutfitHistoryItem[]> {
     .select('*')
     .order('worn_at', { ascending: false });
   
-  // 根据用户类型过滤
-  if (userId) {
-    query = query.eq('user_id', userId);
-  } else if (tempUserId) {
-    query = query.eq('temp_user_id', tempUserId);
-  }
+  query = query.eq('user_id', userId);
   
   const { data, error } = await query;
   
@@ -451,101 +422,27 @@ export async function getOutfitHistory(): Promise<OutfitHistoryItem[]> {
     wornAt: record.worn_at,
     createdAt: record.created_at,
     comfortRating: record.comfort_rating,
+    thermalFeedback: record.thermal_feedback,
     notes: record.notes,
   }));
 }
 
 export async function deleteOutfitHistory(id: string): Promise<void> {
-  const { tempUserId, userId } = getUserContext();
+  const { userId } = getUserContext();
   
-  console.log('[deleteOutfitHistory] Context:', { id, userId, tempUserId });
-  
-  if (!isConfigured || !supabase) {
-    console.log('[deleteOutfitHistory] Demo mode');
+  if (!isConfigured || !supabase || !userId) {
     const history = getDemoOutfitHistory().filter(item => item.id !== id);
     setDemoOutfitHistory(history);
     return;
   }
-  
-  // 先查询记录完整信息
-  const { data: record, error: fetchError } = await supabase
+
+  const { error } = await supabase
     .from('outfit_history')
-    .select('*')
+    .delete()
     .eq('id', id)
-    .single();
-  
-  console.log('[deleteOutfitHistory] Record found:', { 
-    id: record?.id,
-    user_id: record?.user_id, 
-    temp_user_id: record?.temp_user_id,
-    fetchError 
-  });
-  
-  if (fetchError || !record) {
-    throw new Error('记录不存在或无权访问');
-  }
-  
-  // 检查权限
-  const isOwner = (userId && record.user_id === userId) || 
-                  (tempUserId && record.temp_user_id === tempUserId);
-  
-  console.log('[deleteOutfitHistory] Permission check:', { 
-    isOwner,
-    record_user_id: record.user_id, 
-    record_temp_user_id: record.temp_user_id,
-    current_user_id: userId,
-    current_temp_id: tempUserId
-  });
-  
-  if (!isOwner) {
-    throw new Error('无权限删除此记录');
-  }
-  
-  // 尝试使用 RPC 函数删除（绕过 RLS）
-  try {
-    console.log('[deleteOutfitHistory] Trying RPC delete...');
-    
-    // 方法1: 使用 RPC 函数（绕过 RLS）
-    const { data: rpcResult, error: rpcError } = await supabase.rpc('delete_outfit_history_by_id', {
-      p_id: id
-    });
-    
-    console.log('[deleteOutfitHistory] RPC result:', { rpcResult, rpcError });
-    
-    if (rpcError) {
-      console.error('[deleteOutfitHistory] RPC error:', rpcError);
-      throw rpcError;
-    }
-    
-    if (!rpcResult) {
-      console.warn('[deleteOutfitHistory] RPC returned false, record may not exist');
-    }
-    
-    // 验证删除 - 使用 maybeSingle 避免 406 错误
-    await new Promise(resolve => setTimeout(resolve, 200));
-    const { data: checkData, error: checkError } = await supabase
-      .from('outfit_history')
-      .select('id')
-      .eq('id', id)
-      .maybeSingle();
-    
-    console.log('[deleteOutfitHistory] Verify:', { checkData, checkError });
-    
-    if (checkData) {
-      console.error('[deleteOutfitHistory] Record still exists after RPC delete');
-      throw new Error('删除失败');
-    }
-    
-    console.log('[deleteOutfitHistory] Successfully deleted');
-  } catch (e) {
-    console.error('[deleteOutfitHistory] Delete failed:', e);
-    // 如果 RPC 失败，尝试标准删除（带 RLS 限制）
-    const { error } = await supabase.from('outfit_history').delete().eq('id', id);
-    if (error) {
-      console.error('[deleteOutfitHistory] Standard delete also failed:', error);
-    }
-    throw e;
-  }
+    .eq('user_id', userId);
+
+  if (error) throw error;
 }
 
 export async function updateOutfitHistoryRating(
@@ -553,9 +450,9 @@ export async function updateOutfitHistoryRating(
   rating: number, 
   notes?: string
 ): Promise<void> {
-  const { tempUserId, userId } = getUserContext();
+  const { userId } = getUserContext();
   
-  if (!isConfigured || !supabase) {
+  if (!isConfigured || !supabase || !userId) {
     const history = getDemoOutfitHistory();
     const index = history.findIndex(item => item.id === id);
     if (index !== -1) {
@@ -574,15 +471,35 @@ export async function updateOutfitHistoryRating(
     .update(updates)
     .eq('id', id);
   
-  // 添加用户权限检查
-  if (userId) {
-    query = query.eq('user_id', userId);
-  } else if (tempUserId) {
-    query = query.eq('temp_user_id', tempUserId);
-  }
+  query = query.eq('user_id', userId);
   
   const { error } = await query;
   
+  if (error) throw error;
+}
+
+export async function updateOutfitHistoryFeedback(
+  id: string,
+  feedback: 'cold' | 'comfortable' | 'hot',
+): Promise<void> {
+  const { userId } = getUserContext();
+
+  if (!isConfigured || !supabase || !userId) {
+    const history = getDemoOutfitHistory();
+    const index = history.findIndex(item => item.id === id);
+    if (index !== -1) {
+      history[index].thermalFeedback = feedback;
+      setDemoOutfitHistory(history);
+    }
+    return;
+  }
+
+  const { error } = await supabase
+    .from('outfit_history')
+    .update({ thermal_feedback: feedback })
+    .eq('id', id)
+    .eq('user_id', userId);
+
   if (error) throw error;
 }
 
@@ -629,12 +546,12 @@ export async function saveOutfit(outfit: Omit<Outfit, 'id'>): Promise<Outfit> {
 }
 
 export async function getUserPreferences(): Promise<UserPreferences | null> {
-  const { tempUserId, userId } = getUserContext();
+  const { userId } = getUserContext();
   
   console.log('[getUserPreferences] ===== START =====');
-  console.log('[getUserPreferences] Context:', { userId, tempUserId, isConfigured: !!isConfigured });
+  console.log('[getUserPreferences] Context:', { userId, isConfigured: !!isConfigured });
   
-  if (!isConfigured || !supabase) {
+  if (!isConfigured || !supabase || !userId) {
     console.log('[getUserPreferences] Using demo prefs (not configured)');
     return getDemoPrefs();
   }
@@ -643,15 +560,7 @@ export async function getUserPreferences(): Promise<UserPreferences | null> {
     .from('user_preferences')
     .select('*');
   
-  // 根据用户类型过滤
-  if (userId) {
-    query = query.eq('user_id', userId);
-  } else if (tempUserId) {
-    query = query.eq('temp_user_id', tempUserId);
-  } else {
-    console.log('[getUserPreferences] No userId/tempUserId, using demo prefs');
-    return getDemoPrefs();
-  }
+  query = query.eq('user_id', userId);
   
   const { data, error } = await query.limit(1);
   
@@ -685,10 +594,10 @@ export async function getUserPreferences(): Promise<UserPreferences | null> {
 }
 
 export async function saveUserPreferences(prefs: Omit<UserPreferences, 'id'>): Promise<UserPreferences> {
-  const { tempUserId, userId } = getUserContext();
+  const { userId } = getUserContext();
   
   console.log('[saveUserPreferences] ===== START =====');
-  console.log('[saveUserPreferences] Context:', { userId, tempUserId, isConfigured: !!isConfigured, hasSupabase: !!supabase });
+  console.log('[saveUserPreferences] Context:', { userId, isConfigured: !!isConfigured, hasSupabase: !!supabase });
   console.log('[saveUserPreferences] Input prefs:', prefs);
   
   // 未配置 Supabase 或没有登录用户：使用 localStorage
@@ -708,15 +617,10 @@ export async function saveUserPreferences(prefs: Omit<UserPreferences, 'id'>): P
   // 检查是否已存在
   console.log('[saveUserPreferences] Checking existing record for userId:', userId);
   
-  let existingQuery = supabase
+  const existingQuery = supabase
     .from('user_preferences')
-    .select('id');
-  
-  if (userId) {
-    existingQuery = existingQuery.eq('user_id', userId);
-  } else if (tempUserId) {
-    existingQuery = existingQuery.eq('temp_user_id', tempUserId);
-  }
+    .select('id')
+    .eq('user_id', userId);
   
   const { data: existingData, error: existingError } = await existingQuery.limit(1);
   
@@ -738,12 +642,8 @@ export async function saveUserPreferences(prefs: Omit<UserPreferences, 'id'>): P
     default_scene: prefs.defaultScene,
   };
   
-  // 添加用户标识
-  if (userId) {
-    dbPrefs.user_id = userId;
-  } else if (tempUserId) {
-    dbPrefs.temp_user_id = tempUserId;
-  }
+  dbPrefs.user_id = userId;
+  dbPrefs.temp_user_id = null;
   
   console.log('[saveUserPreferences] DB payload:', dbPrefs);
   
@@ -810,6 +710,149 @@ export async function uploadClothingImage(file: File): Promise<string> {
   return data.publicUrl;
 }
 
+export interface LocalGuestDataSnapshot {
+  items: ClothingItem[];
+  history: OutfitHistoryItem[];
+  preferences: UserPreferences | null;
+}
+
+export interface GuestMergeResult {
+  clothing: number;
+  history: number;
+  preferences: number;
+  legacyClaimed: boolean;
+}
+
+// Merge locally stored guest data after a successful authenticated login.
+// RLS still enforces that every inserted row belongs to the active auth user.
+export async function mergeLocalGuestDataIntoAccount(
+  snapshot: LocalGuestDataSnapshot,
+  userId: string,
+  legacyTempUserId?: string | null,
+): Promise<GuestMergeResult> {
+  const result: GuestMergeResult = {
+    clothing: 0,
+    history: 0,
+    preferences: 0,
+    legacyClaimed: false,
+  };
+
+  if (!isConfigured || !supabase) return result;
+
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (sessionData.session?.user.id !== userId) {
+    throw new Error('登录会话无效，游客数据未合并');
+  }
+
+  if (legacyTempUserId) {
+    const { error } = await supabase.rpc('claim_legacy_temp_user_data', {
+      p_temp_user_id: legacyTempUserId,
+    });
+    // The compatibility RPC is introduced by the security migration. Keep the
+    // local merge working when the app is upgraded before the migration runs.
+    if (!error) result.legacyClaimed = true;
+  }
+
+  if (snapshot.items.length > 0) {
+    const { data: existingItems, error: existingError } = await supabase
+      .from('clothing_items')
+      .select('name,category,sub_category,warmth_level')
+      .eq('user_id', userId);
+    if (existingError) throw existingError;
+
+    const signatures = new Set(
+      (existingItems || []).map((item: any) =>
+        `${item.name}|${item.category}|${item.sub_category}|${item.warmth_level}`,
+      ),
+    );
+    const rows = snapshot.items
+      .filter(item => !signatures.has(`${item.name}|${item.category}|${item.subCategory}|${item.warmthLevel}`))
+      .map(item => ({
+        name: item.name,
+        category: item.category,
+        sub_category: item.subCategory,
+        warmth_level: item.warmthLevel,
+        water_resistant: item.waterResistant,
+        wind_resistant: item.windResistant,
+        usage: item.usage,
+        has_pockets: item.hasPockets || false,
+        color: item.color,
+        image_url: item.imageUrl,
+        created_at: item.createdAt || new Date().toISOString(),
+        user_id: userId,
+        temp_user_id: null,
+      }));
+
+    if (rows.length > 0) {
+      const { error } = await supabase.from('clothing_items').insert(rows);
+      if (error) throw error;
+      result.clothing = rows.length;
+    }
+  }
+
+  if (snapshot.history.length > 0) {
+    const { data: existingHistory, error: existingError } = await supabase
+      .from('outfit_history')
+      .select('worn_at,location_name')
+      .eq('user_id', userId);
+    if (existingError) throw existingError;
+
+    const signatures = new Set(
+      (existingHistory || []).map((entry: any) => `${entry.worn_at}|${entry.location_name}`),
+    );
+    const rows = snapshot.history
+      .filter(entry => !signatures.has(`${entry.wornAt}|${entry.locationName}`))
+      .map(entry => ({
+        items: entry.items,
+        weather_data: entry.weatherData,
+        location_name: entry.locationName,
+        scene: entry.scene,
+        run_type: entry.runType,
+        comfort_rating: entry.comfortRating,
+        thermal_feedback: entry.thermalFeedback,
+        notes: entry.notes,
+        worn_at: entry.wornAt,
+        created_at: entry.createdAt,
+        user_id: userId,
+        temp_user_id: null,
+      }));
+
+    if (rows.length > 0) {
+      const { error } = await supabase.from('outfit_history').insert(rows);
+      if (error) throw error;
+      result.history = rows.length;
+    }
+  }
+
+  if (snapshot.preferences) {
+    const { data: existingPreferences, error: existingError } = await supabase
+      .from('user_preferences')
+      .select('id')
+      .eq('user_id', userId)
+      .limit(1);
+    if (existingError) throw existingError;
+
+    if (!existingPreferences?.length) {
+      const prefs = snapshot.preferences;
+      const { error } = await supabase.from('user_preferences').insert({
+        location: prefs.location,
+        default_run_type: prefs.defaultRunType,
+        commute_target_temp: prefs.commuteTargetTemp,
+        easy_run_target_temp: prefs.easyRunTargetTemp,
+        long_run_target_temp: prefs.longRunTargetTemp,
+        interval_run_target_temp: prefs.intervalRunTargetTemp,
+        default_scene: prefs.defaultScene,
+        user_id: userId,
+        temp_user_id: null,
+      });
+      if (error) throw error;
+      result.preferences = 1;
+    }
+  }
+
+  return result;
+}
+
 // ============================================
 // Outfit Share API
 // ============================================
@@ -823,9 +866,9 @@ export interface ShareData {
 }
 
 export async function saveOutfitShare(shareData: Omit<ShareData, 'id'>): Promise<ShareData> {
-  const { tempUserId, userId } = getUserContext();
+  const { userId } = getUserContext();
   
-  if (!isConfigured || !supabase) {
+  if (!isConfigured || !supabase || !userId) {
     // Fallback to localStorage in demo mode
     const id = `share_${Date.now()}`;
     const data = { ...shareData, id };
@@ -840,11 +883,8 @@ export async function saveOutfitShare(shareData: Omit<ShareData, 'id'>): Promise
     created_at: shareData.createdAt,
   };
   
-  if (userId) {
-    insertData.user_id = userId;
-  } else if (tempUserId) {
-    insertData.temp_user_id = tempUserId;
-  }
+  insertData.user_id = userId;
+  insertData.temp_user_id = null;
   
   const { data, error } = await supabase
     .from('outfit_shares')
@@ -876,25 +916,12 @@ export async function getOutfitShare(id: string): Promise<ShareData | null> {
     return stored ? JSON.parse(stored) : null;
   }
   
-  const { data, error } = await supabase
-    .from('outfit_shares')
-    .select('*')
-    .eq('id', id)
-    .limit(1);
+  const { data, error } = await supabase.rpc('get_outfit_share', { p_id: id });
   
   if (error) {
     console.error('getOutfitShare error:', error);
     return null;
   }
-  
-  const record = first(data as any[]);
-  if (!record) return null;
-  
-  return {
-    id: record.id,
-    outfit: record.outfit_data,
-    weather: record.weather_data,
-    location: record.location,
-    createdAt: record.created_at,
-  };
+
+  return data ? data as ShareData : null;
 }

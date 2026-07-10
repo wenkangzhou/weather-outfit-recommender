@@ -1,16 +1,14 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import { X, Plus, ChevronLeft, Pencil, Trash2, ChevronDown } from 'lucide-react';
+import { X, Plus, ChevronLeft, Pencil, Trash2, ChevronDown, Search } from 'lucide-react';
 import { ClothingItem, ClothingCategory, ClothingSubCategory } from '@/types';
 import { getClothingItems, addClothingItem, updateClothingItem, deleteClothingItem } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { Card } from '@/components/ui/card';
-import { ThemeProvider } from '@/components/ThemeProvider';
-import { I18nProvider } from '@/components/I18nProvider';
 
 const CATEGORIES: { type: ClothingCategory; label: string; icon: string; showWaterWind: boolean }[] = [
   { type: 'top', label: '上衣', icon: '👕', showWaterWind: true },
@@ -144,13 +142,9 @@ function WardrobeLoading() {
 
 export default function WardrobePage() {
   return (
-    <ThemeProvider>
-      <I18nProvider>
-        <Suspense fallback={<WardrobeLoading />}>
-          <WardrobeContent />
-        </Suspense>
-      </I18nProvider>
-    </ThemeProvider>
+    <Suspense fallback={<WardrobeLoading />}>
+      <WardrobeContent />
+    </Suspense>
   );
 }
 
@@ -168,6 +162,9 @@ function WardrobeContent() {
   const [defaultCategory, setDefaultCategory] = useState<ClothingCategory | undefined>(undefined);
   const [mounted, setMounted] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+  const [searchQuery, setSearchQuery] = useState('');
+  const [usageFilter, setUsageFilter] = useState<'all' | 'commute' | 'running'>('all');
+  const [sortBy, setSortBy] = useState<'recent' | 'name' | 'warmth'>('recent');
   
   // 跟踪平台推荐的虚拟物品ID（数据库不支持 is_virtual 列，用本地状态）
   const [virtualItemIds, setVirtualItemIds] = useState<Set<string>>(() => {
@@ -260,17 +257,38 @@ function WardrobeContent() {
   };
 
   // 标记虚拟物品（根据本地存储的 virtualItemIds）
-  const itemsWithVirtualFlag = items.map(item => ({
+  const itemsWithVirtualFlag = useMemo(() => items.map(item => ({
     ...item,
-    isVirtual: virtualItemIds.has(item.id)
-  }));
+    isVirtual: virtualItemIds.has(item.id),
+  })), [items, virtualItemIds]);
+
+  const filteredItems = useMemo(() => {
+    const query = searchQuery.trim().toLocaleLowerCase();
+    const nextItems = itemsWithVirtualFlag.filter(item => {
+      const matchesSearch = !query || [
+        item.name,
+        t(`types.${item.subCategory}`),
+        CATEGORIES.find(category => category.type === item.category)?.label,
+      ].some(value => value?.toLocaleLowerCase().includes(query));
+      const matchesUsage = usageFilter === 'all'
+        || item.usage === usageFilter
+        || item.usage === 'both';
+      return matchesSearch && matchesUsage;
+    });
+
+    return [...nextItems].sort((a, b) => {
+      if (sortBy === 'name') return a.name.localeCompare(b.name, 'zh-CN');
+      if (sortBy === 'warmth') return b.warmthLevel - a.warmthLevel;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  }, [itemsWithVirtualFlag, searchQuery, sortBy, t, usageFilter]);
   
   const groupedItems = {
-    top: itemsWithVirtualFlag.filter(i => i.category === 'top'),
-    bottom: itemsWithVirtualFlag.filter(i => i.category === 'bottom'),
-    socks: itemsWithVirtualFlag.filter(i => i.category === 'socks'),
-    shoes: itemsWithVirtualFlag.filter(i => i.category === 'shoes'),
-    hat: itemsWithVirtualFlag.filter(i => i.category === 'hat'),
+    top: filteredItems.filter(i => i.category === 'top'),
+    bottom: filteredItems.filter(i => i.category === 'bottom'),
+    socks: filteredItems.filter(i => i.category === 'socks'),
+    shoes: filteredItems.filter(i => i.category === 'shoes'),
+    hat: filteredItems.filter(i => i.category === 'hat'),
   };
 
   return (
@@ -283,6 +301,50 @@ function WardrobeContent() {
           </Button>
           <h1 className="text-xl font-semibold">{t('settings.myWardrobe')}</h1>
         </header>
+
+        {mounted && !loading && items.length > 0 && (
+          <div className="px-5 pb-4 space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={event => setSearchQuery(event.target.value)}
+                placeholder={t('wardrobe.searchPlaceholder')}
+                aria-label={t('wardrobe.searchPlaceholder')}
+                className="w-full rounded-xl border border-border bg-muted/50 py-3 pl-10 pr-4 text-sm outline-none transition-shadow focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              {(['all', 'commute', 'running'] as const).map(filter => (
+                <button
+                  key={filter}
+                  onClick={() => setUsageFilter(filter)}
+                  className={`rounded-full px-3 py-2 text-xs font-medium transition-colors ${
+                    usageFilter === filter
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {t(`wardrobe.filter.${filter}`)}
+                </button>
+              ))}
+              <select
+                value={sortBy}
+                onChange={event => setSortBy(event.target.value as typeof sortBy)}
+                aria-label={t('wardrobe.sort.label')}
+                className="ml-auto rounded-lg border border-border bg-background px-2 py-2 text-xs text-foreground outline-none focus:ring-2 focus:ring-primary/20"
+              >
+                <option value="recent">{t('wardrobe.sort.recent')}</option>
+                <option value="name">{t('wardrobe.sort.name')}</option>
+                <option value="warmth">{t('wardrobe.sort.warmth')}</option>
+              </select>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {t('wardrobe.resultCount', { count: filteredItems.length, total: items.length })}
+            </p>
+          </div>
+        )}
 
         {/* Content */}
         <div className="px-5 pb-8">
@@ -307,11 +369,25 @@ function WardrobeContent() {
                 }}
               />
             </div>
+          ) : filteredItems.length === 0 ? (
+            <div className="flex min-h-[40vh] flex-col items-center justify-center text-center">
+              <Search size={32} className="mb-3 text-muted-foreground" />
+              <p className="font-medium">{t('wardrobe.noResults')}</p>
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setUsageFilter('all');
+                }}
+                className="mt-4 rounded-xl bg-muted px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
+              >
+                {t('wardrobe.clearFilters')}
+              </button>
+            </div>
           ) : (
             <div className="space-y-6">
               {/* 分类列表 */}
               <div className="space-y-4">
-                {CATEGORIES.map(cat => (
+                {CATEGORIES.filter(cat => groupedItems[cat.type].length > 0).map(cat => (
                   <CategorySection
                     key={cat.type}
                     category={cat}
@@ -454,6 +530,16 @@ function CategorySection({
                 key={item.id}
                 className="relative p-4 flex items-center gap-3 hover:bg-muted/50 transition-colors cursor-pointer"
                 onClick={() => setActiveItemId(isActive ? null : item.id)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    setActiveItemId(isActive ? null : item.id);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                aria-expanded={isActive}
+                aria-label={`${item.name}，展开操作`}
               >
                 {/* 右上角删除按钮 - 与编辑/复制同步显示 */}
                 <button
@@ -463,6 +549,7 @@ function CategorySection({
                   }}
                   className={`absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded-full text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 transition-all ${isActive ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
                   title="删除"
+                  aria-label={`删除 ${item.name}`}
                 >
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M18 6L6 18M6 6l12 12"/>
@@ -540,6 +627,7 @@ function CategorySection({
                     className="w-7 h-7"
                     onClick={() => onEdit(item)}
                     title="编辑"
+                    aria-label={`编辑 ${item.name}`}
                   >
                     <Pencil size={14} />
                   </Button>
@@ -549,6 +637,7 @@ function CategorySection({
                     className="w-7 h-7 text-blue-600 hover:text-blue-700"
                     onClick={() => onCopy(item)}
                     title="复制"
+                    aria-label={`复制 ${item.name}`}
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
@@ -677,14 +766,19 @@ function AddEditItemModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-background/95 backdrop-blur-xl z-50 animate-fade-in">
+    <div
+      className="fixed inset-0 bg-background/95 backdrop-blur-xl z-50 animate-fade-in"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="wardrobe-editor-title"
+    >
       <div className="max-w-md mx-auto h-full flex flex-col">
         {/* Modal Header */}
         <header className="pt-8 pb-4 px-5 flex items-center gap-4 shrink-0">
           <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full">
             <X size={20} />
           </Button>
-          <h1 className="text-lg font-semibold">
+          <h1 id="wardrobe-editor-title" className="text-lg font-semibold">
             {isEditing ? '编辑衣物' : isCopying ? '复制衣物' : `添加${categoryInfo?.label || '衣物'}`}
           </h1>
         </header>

@@ -3,8 +3,17 @@
 import { supabase } from './supabase';
 
 const TEMP_USER_ID_KEY = 'temp_user_id';
+const LEGACY_TEMP_USER_ID_KEY = 'legacy_temp_user_id';
 const USER_ID_KEY = 'user_id';
 const USER_EMAIL_KEY = 'user_email';
+const GUEST_DATA_KEYS = ['demo_clothing_items', 'demo_outfit_history', 'demo_preferences'] as const;
+
+export interface AuthResult {
+  success: boolean;
+  error?: string;
+  mergedItems?: number;
+  pendingConfirmation?: boolean;
+}
 
 // 生成随机 ID
 function generateTempUserId(): string {
@@ -94,8 +103,52 @@ export function getUserInfo(): { type: 'guest' | 'registered'; display: string }
   return { type: 'guest', display: '访客' };
 }
 
+function parseLocalValue<T>(key: string, fallback: T): T {
+  try {
+    const value = localStorage.getItem(key);
+    return value ? JSON.parse(value) as T : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function captureLocalGuestData() {
+  return {
+    items: parseLocalValue<any[]>('demo_clothing_items', []),
+    history: parseLocalValue<any[]>('demo_outfit_history', []),
+    preferences: parseLocalValue<any | null>('demo_preferences', null),
+  };
+}
+
+async function finishAuthenticatedLogin(userId: string, email: string, legacyTempUserId: string | null) {
+  localStorage.setItem(USER_ID_KEY, userId);
+  localStorage.setItem(USER_EMAIL_KEY, email);
+
+  const snapshot = captureLocalGuestData();
+  try {
+    const { mergeLocalGuestDataIntoAccount } = await import('./supabase');
+    const merged = await mergeLocalGuestDataIntoAccount(snapshot, userId, legacyTempUserId);
+    GUEST_DATA_KEYS.forEach(key => localStorage.removeItem(key));
+
+    if (merged.legacyClaimed) {
+      localStorage.removeItem(TEMP_USER_ID_KEY);
+      localStorage.removeItem(LEGACY_TEMP_USER_ID_KEY);
+    } else if (legacyTempUserId) {
+      // Keep the opaque legacy id until the security migration is deployed.
+      localStorage.setItem(LEGACY_TEMP_USER_ID_KEY, legacyTempUserId);
+      localStorage.removeItem(TEMP_USER_ID_KEY);
+    }
+
+    return merged.clothing + merged.history + merged.preferences;
+  } catch (error) {
+    console.error('Guest data merge failed; local copy retained:', error);
+    return 0;
+  }
+}
+
 // 注册新用户（邮箱密码）
-export async function registerUser(email: string, password: string): Promise<{ success: boolean; error?: string }> {
+export async function registerUser(email: string, password: string): Promise<AuthResult> {
+  const legacyTempUserId = localStorage.getItem(TEMP_USER_ID_KEY) || localStorage.getItem(LEGACY_TEMP_USER_ID_KEY);
   try {
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -105,25 +158,20 @@ export async function registerUser(email: string, password: string): Promise<{ s
     if (error) throw error;
     if (!data.user) throw new Error('注册失败');
     
-    // 迁移临时用户数据
-    const { tempUserId } = getCurrentUser();
-    if (tempUserId) {
-      await migrateTempUserData(tempUserId, data.user.id);
-      localStorage.removeItem(TEMP_USER_ID_KEY);
+    if (!data.session) {
+      return { success: true, pendingConfirmation: true };
     }
-    
-    // 保存 userId 和 email
-    localStorage.setItem(USER_ID_KEY, data.user.id);
-    localStorage.setItem(USER_EMAIL_KEY, email);
-    
-    return { success: true };
+
+    const mergedItems = await finishAuthenticatedLogin(data.user.id, email, legacyTempUserId);
+    return { success: true, mergedItems };
   } catch (error: any) {
     return { success: false, error: error.message };
   }
 }
 
 // 登录
-export async function loginUser(email: string, password: string): Promise<{ success: boolean; error?: string }> {
+export async function loginUser(email: string, password: string): Promise<AuthResult> {
+  const legacyTempUserId = localStorage.getItem(TEMP_USER_ID_KEY) || localStorage.getItem(LEGACY_TEMP_USER_ID_KEY);
   try {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -133,18 +181,8 @@ export async function loginUser(email: string, password: string): Promise<{ succ
     if (error) throw error;
     if (!data.user) throw new Error('登录失败');
     
-    // 如果有临时数据，提示合并（这里简单处理：保留登录用户的数据）
-    const { tempUserId } = getCurrentUser();
-    if (tempUserId) {
-      // 可选：提示用户是否合并数据
-      // 暂时直接清除临时 ID
-      localStorage.removeItem(TEMP_USER_ID_KEY);
-    }
-    
-    localStorage.setItem(USER_ID_KEY, data.user.id);
-    localStorage.setItem(USER_EMAIL_KEY, email);
-    
-    return { success: true };
+    const mergedItems = await finishAuthenticatedLogin(data.user.id, email, legacyTempUserId);
+    return { success: true, mergedItems };
   } catch (error: any) {
     return { success: false, error: error.message };
   }
@@ -157,18 +195,6 @@ export async function logoutUser(): Promise<void> {
   localStorage.removeItem(USER_EMAIL_KEY);
   // 生成新的临时 ID
   getOrCreateTempUserId();
-}
-
-// 迁移临时用户数据到注册用户
-async function migrateTempUserData(tempUserId: string, userId: string): Promise<void> {
-  const { error } = await supabase.rpc('migrate_temp_user_data', {
-    p_temp_user_id: tempUserId,
-    p_user_id: userId,
-  });
-  
-  if (error) {
-    console.error('Failed to migrate temp user data:', error);
-  }
 }
 
 // 获取用户显示信息

@@ -2,9 +2,10 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Trash2, Calendar, MapPin, Wind, Droplets, Thermometer, Star, Shirt } from 'lucide-react';
-import { OutfitHistoryItem, ClothingItem } from '@/types';
-import { getOutfitHistory, deleteOutfitHistory, updateOutfitHistoryRating } from '@/lib/supabase';
+import { ArrowLeft, Trash2, Calendar, MapPin, Wind, Droplets, Thermometer, Shirt } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { OutfitHistoryItem, ClothingItem, UserPreferences } from '@/types';
+import { getOutfitHistory, deleteOutfitHistory, getUserPreferences, saveUserPreferences, updateOutfitHistoryFeedback } from '@/lib/supabase';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -14,6 +15,7 @@ function HistoryContent() {
   const searchParams = useSearchParams();
   const from = searchParams.get('from');
   const { toast } = useToast();
+  const { t } = useTranslation();
   
   // 返回按钮处理：根据来源决定返回目标
   const handleBack = () => {
@@ -60,9 +62,6 @@ function HistoryContent() {
     console.log(`[Delete] Start. ID: ${idToDelete}, Current count: ${previousCount}`);
     console.log('[Delete] All IDs:', history.map(h => h.id));
     
-    // 保存当前状态用于恢复
-    const previousHistory = [...history];
-    
     try {
       setDeletingId(idToDelete);
       
@@ -96,14 +95,62 @@ function HistoryContent() {
     }
   };
 
-  const handleRate = async (id: string, rating: number) => {
+  const handleThermalFeedback = async (
+    item: OutfitHistoryItem,
+    feedback: 'cold' | 'comfortable' | 'hot',
+  ) => {
     try {
-      await updateOutfitHistoryRating(id, rating);
-      setHistory(history.map(h => 
-        h.id === id ? { ...h, comfortRating: rating } : h
+      await updateOutfitHistoryFeedback(item.id, feedback);
+      setHistory(current => current.map(entry =>
+        entry.id === item.id ? { ...entry, thermalFeedback: feedback } : entry,
       ));
+
+      const preferences = await getUserPreferences();
+      const basePreferences: UserPreferences = preferences || {
+        id: 'local',
+        location: item.locationName,
+        defaultRunType: 'easy',
+        commuteTargetTemp: 24,
+        easyRunTargetTemp: 12,
+        longRunTargetTemp: 10,
+        intervalRunTargetTemp: 8,
+        defaultScene: item.scene,
+      };
+      const adjustment = { cold: 1, comfortable: 0, hot: -1 } as const;
+      const adjustmentDelta = adjustment[feedback] - adjustment[item.thermalFeedback || 'comfortable'];
+
+      if (adjustmentDelta !== 0) {
+        const field = item.scene === 'commute'
+          ? 'commuteTargetTemp'
+          : item.runType === 'long'
+            ? 'longRunTargetTemp'
+            : item.runType === 'interval'
+              ? 'intervalRunTargetTemp'
+              : 'easyRunTargetTemp';
+        const limits = {
+          commuteTargetTemp: [16, 30],
+          easyRunTargetTemp: [5, 20],
+          longRunTargetTemp: [5, 18],
+          intervalRunTargetTemp: [0, 15],
+        } as const;
+        const defaults = {
+          commuteTargetTemp: 24,
+          easyRunTargetTemp: 12,
+          longRunTargetTemp: 10,
+          intervalRunTargetTemp: 8,
+        } as const;
+        const [min, max] = limits[field];
+        const currentValue = basePreferences[field] ?? defaults[field];
+        await saveUserPreferences({
+          ...basePreferences,
+          [field]: Math.min(max, Math.max(min, currentValue + adjustmentDelta)),
+        });
+      }
+
+      toast({ title: t('history.feedback.saved') });
     } catch (error) {
-      console.error('Failed to rate:', error);
+      console.error('Failed to save thermal feedback:', error);
+      toast({ title: t('history.feedback.failed'), variant: 'destructive' });
     }
   };
 
@@ -169,6 +216,7 @@ function HistoryContent() {
             size="icon" 
             className="shrink-0"
             onClick={handleBack}
+            aria-label={t('common.back')}
           >
             <ArrowLeft size={20} />
           </Button>
@@ -323,22 +371,22 @@ function HistoryContent() {
                     )}
                   </div>
 
-                  {/* Footer: Rating & Actions */}
+                  {/* Footer: thermal feedback & actions */}
                   <div className="px-3 py-2 border-t border-border bg-muted/30 flex items-center justify-between">
-                    {/* Rating */}
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs text-muted-foreground mr-1">舒适度:</span>
-                      {[1, 2, 3, 4, 5].map((star) => (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-muted-foreground mr-1">{t('history.feedback.label')}</span>
+                      {(['cold', 'comfortable', 'hot'] as const).map(feedback => (
                         <button
-                          key={star}
-                          onClick={() => handleRate(item.id, star)}
-                          className={`transition-colors ${
-                            (item.comfortRating || 0) >= star
-                              ? 'text-amber-400'
-                              : 'text-muted-foreground/30 hover:text-amber-300'
+                          key={feedback}
+                          onClick={() => handleThermalFeedback(item, feedback)}
+                          aria-pressed={item.thermalFeedback === feedback}
+                          className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                            item.thermalFeedback === feedback
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-background text-muted-foreground hover:text-foreground'
                           }`}
                         >
-                          <Star size={14} fill={(item.comfortRating || 0) >= star ? 'currentColor' : 'none'} />
+                          {t(`history.feedback.${feedback}`)}
                         </button>
                       ))}
                     </div>
@@ -350,6 +398,7 @@ function HistoryContent() {
                       className="h-7 px-2 text-destructive hover:text-destructive"
                       onClick={() => handleDeleteClick(item.id, `${dateInfo.date} ${dateInfo.weekday} ${dateInfo.time}`)}
                       disabled={deletingId === item.id}
+                      aria-label={t('history.deleteRecord')}
                     >
                       <Trash2 size={14} />
                     </Button>

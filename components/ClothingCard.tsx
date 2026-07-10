@@ -33,13 +33,14 @@ export default function ClothingCard({
   // 添加模式
   if (showAdd) {
     return (
-      <div 
+      <button
+        type="button"
         className="flex items-center gap-4 p-4 bg-card border border-dashed border-border rounded-xl hover:border-border hover:bg-accent/50 transition-all cursor-pointer min-h-[72px]"
         onClick={onAdd}
       >
         <span className="text-2xl">{icon}</span>
         <span className="text-sm text-muted-foreground">{t('common.add')}{label}</span>
-      </div>
+      </button>
     );
   }
 

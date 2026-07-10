@@ -9,15 +9,9 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   const { language } = useAppStore();
 
   useEffect(() => {
-    if (i18n.isInitialized) {
-      i18n.changeLanguage(language);
-    }
+    i18n.changeLanguage(language);
+    document.documentElement.lang = language === 'zh' ? 'zh-CN' : 'en';
   }, [language]);
-
-  // 等待 i18n 初始化
-  if (!i18n.isInitialized) {
-    return <>{children}</>;
-  }
 
   return (
     <I18nextProvider i18n={i18n}>

@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { createPortal } from 'react-dom';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import { MapPin, RefreshCw, ChevronDown, Wind, Droplets, Plus, Shirt, Check, History, X, Share2 } from 'lucide-react';
+import { MapPin, RefreshCw, ChevronDown, Wind, Droplets, Check, History, Share2 } from 'lucide-react';
 import { ClothingItem, WeatherData, OutfitRecommendation, OutfitScene, UserPreferences, RunType } from '@/types';
-import { getMockWeather } from '@/lib/weather';
 import { generateRecommendation } from '@/lib/recommendation';
 import { getClothingItems, getUserPreferences, saveUserPreferences, saveOutfitToHistory, addClothingItem, saveOutfitShare } from '@/lib/supabase';
 import { Card } from '@/components/ui/card';
@@ -18,6 +17,8 @@ import { toast } from '@/hooks/use-toast';
 interface OutfitTabProps {
   weather?: WeatherData | null;
   isActive?: boolean;
+  onCitySelect?: (city: string) => Promise<void>;
+  onLocate?: () => Promise<void>;
 }
 
 const RUN_TYPES: { type: RunType; label: string; shortLabel: string; desc: string }[] = [
@@ -47,15 +48,13 @@ function checkWardrobeCompleteness(items: ClothingItem[]) {
   return { isEmpty, isComplete, hasTop, hasBottom, hasSocks, hasShoes, hasHat, missingCategories, total };
 }
 
-export default function OutfitTab({ weather: propWeather, isActive = true }: OutfitTabProps) {
+export default function OutfitTab({
+  weather: propWeather,
+  isActive = true,
+  onCitySelect,
+  onLocate,
+}: OutfitTabProps) {
   const router = useRouter();
-  
-  // 当切换到其他 tab 时，关闭菜单
-  useEffect(() => {
-    if (!isActive) {
-      setShowActionMenu(false);
-    }
-  }, [isActive]);
   
   // 当 tab 变为活跃时，重新加载偏好设置（确保设置页修改后立即生效）
   useEffect(() => {
@@ -110,9 +109,6 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
   // 删除确认对话框状态
   const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; index: number } | null>(null);
   
-  // 悬浮操作菜单状态
-  const [showActionMenu, setShowActionMenu] = useState(false);
-  
   // 用户是否手动切换过跑步类型
   const [runTypeChangedByUser, setRunTypeChangedByUser] = useState(false);
   
@@ -122,13 +118,7 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
   // 分享相关状态
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareId, setShareId] = useState<string>('');
-
-  // 客户端挂载状态
-  const [mounted, setMounted] = useState(false);
-  
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const hasLoadedDataRef = useRef(false);
 
   useEffect(() => {
     // 只有当 propWeather 有值时才设置，否则保持 null（显示 loading）
@@ -185,22 +175,14 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
       console.error('Failed to load data:', error);
     } finally {
       setLoading(false);
+      hasLoadedDataRef.current = true;
     }
-  }, [weather, scene, runType]);
+  }, [weather, scene, runType, runTypeChangedByUser]);
 
   useEffect(() => {
     // tab 切换时：如果已有数据，不显示 loading；如果是首次加载，显示 loading
-    const isFirstLoad = !wardrobe.tops.length && !allItems.length;
-    loadData(isFirstLoad);
+    loadData(!hasLoadedDataRef.current);
   }, [loadData]);
-
-  // 监听跑步类型变化，自动重新生成推荐
-  useEffect(() => {
-    if (scene === 'running' && weather && wardrobe.tops.length > 0) {
-      generateNewRecommendation();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [runType]);
   
   // 场景或天气变化时重置组合索引
   useEffect(() => {
@@ -475,7 +457,6 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
   const handleShare = async () => {
     if (!recommendation || !weather) return;
     
-    setShowActionMenu(false);
     setShowShareModal(true);
     
     try {
@@ -649,7 +630,7 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
 
   // ===== 正常状态：显示穿搭推荐 =====
   return (
-    <div className="min-h-screen pb-24 animate-fade-in">
+    <div className="min-h-screen pb-52 animate-fade-in">
       {/* Compact Header */}
       <header className="safe-area-header px-5 flex items-center justify-between">
         <button 
@@ -822,8 +803,9 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
                       {arr.length > 1 && (
                         <button
                           onClick={() => handleRemoveLayer(index)}
-                          className="absolute top-2 right-2 p-1.5 rounded-lg bg-background/80 backdrop-blur-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all opacity-0 group-hover:opacity-100 shadow-sm border border-transparent hover:border-destructive/20"
+                          className="absolute top-2 right-2 p-1.5 rounded-lg bg-background/80 backdrop-blur-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100 shadow-sm border border-transparent hover:border-destructive/20"
                           title="删除这层"
+                          aria-label={`删除第 ${index + 1} 层上衣`}
                         >
                           <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
                             <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -879,10 +861,11 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
       {showLocationPicker && (
         <CityPicker
           currentCity={weather?.cityName || preferences?.location || '上海'}
-          onSelect={(city) => {
-            const newWeather = { ...weather!, cityName: city };
-            setWeather(newWeather);
+          onSelect={async (city) => {
+            if (!onCitySelect) return;
+            await onCitySelect(city);
           }}
+          onLocate={onLocate}
           onClose={() => setShowLocationPicker(false)}
         />
       )}
@@ -1033,77 +1016,44 @@ export default function OutfitTab({ weather: propWeather, isActive = true }: Out
         </div>
       )}
 
-      {/* Floating Action Button - 只在当前 tab 激活时显示 */}
-      {mounted && isActive && createPortal(
-        <div 
-          className="fixed z-[100] flex flex-col items-end" 
-          style={{ 
-            position: 'fixed',
-            right: '16px', 
-            bottom: '120px'
-          }}
-        >
-          {/* 菜单向上展开（在按钮上方） */}
-          {showActionMenu && (
-            <div className="flex flex-col items-end gap-2 mb-2">
-              <button
-                onClick={() => {
-                  generateNewRecommendation();
-                  setShowActionMenu(false);
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-full shadow-lg text-sm font-medium hover:bg-slate-700 transition-all whitespace-nowrap"
-              >
-                <RefreshCw size={16} />
-                {t('share.refresh')}
-              </button>
+      {/* Primary action dock - constrained to the mobile app frame. */}
+      {isActive && (
+        <div className="fixed inset-x-0 bottom-[112px] z-40 mx-auto w-full max-w-md px-5">
+          <div className="flex items-center gap-2 rounded-2xl border border-border/80 bg-background/95 p-2 shadow-xl backdrop-blur-xl">
             <button
-              onClick={() => {
-                handleSaveOutfit();
-                setShowActionMenu(false);
-              }}
-              disabled={saving}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-full shadow-lg text-sm font-medium hover:bg-slate-700 transition-all disabled:opacity-50 whitespace-nowrap"
+              onClick={generateNewRecommendation}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground transition-colors hover:text-foreground"
+              aria-label={t('share.refresh')}
+              title={t('share.refresh')}
             >
-              {saving ? <RefreshCw size={16} className="animate-spin" /> : <Check size={16} />}
+              <RefreshCw size={18} />
+            </button>
+            <button
+              onClick={handleSaveOutfit}
+              disabled={saving}
+              className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+            >
+              {saving ? <RefreshCw size={18} className="animate-spin" /> : <Check size={18} />}
               {t('share.confirm')}
             </button>
             <button
-              onClick={() => {
-                router.push('/history');
-                setShowActionMenu(false);
-              }}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-full shadow-lg text-sm font-medium hover:bg-slate-700 transition-all whitespace-nowrap"
+              onClick={handleShare}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground transition-colors hover:text-foreground"
+              aria-label={t('share.title')}
+              title={t('share.title')}
             >
-              <History size={16} />
-              {t('share.history')}
+              <Share2 size={18} />
             </button>
             <button
-              onClick={handleShare}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-full shadow-lg text-sm font-medium hover:bg-slate-700 transition-all whitespace-nowrap"
+              onClick={() => router.push('/history')}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground transition-colors hover:text-foreground"
+              aria-label={t('share.history')}
+              title={t('share.history')}
             >
-              <Share2 size={16} />
-              {t('share.title')}
+              <History size={18} />
             </button>
           </div>
-        )}
-        
-        {/* 主悬浮按钮 */}
-        <button
-          onClick={() => setShowActionMenu(!showActionMenu)}
-          className={`w-12 h-12 rounded-full shadow-xl flex items-center justify-center transition-all duration-300 ${
-            showActionMenu 
-              ? 'bg-muted rotate-90' 
-              : 'bg-primary text-primary-foreground hover:bg-primary/90'
-          }`}
-        >
-          {showActionMenu ? <X size={20} /> : (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-            </svg>
-          )}
-        </button>
-        </div>,
-        document.body
+        </div>
       )}
       
       {/* 分享弹窗 - 直接展示 DOM 卡片 */}
@@ -1355,7 +1305,7 @@ function QRCode({ url, size = 64 }: { url: string; size?: number }) {
   
   if (!dataUrl) return <div style={{ width: size, height: size }} className="bg-gray-100 rounded" />;
   
-  return <img src={dataUrl} alt="QR Code" style={{ width: size, height: size }} className="rounded" />;
+  return <Image src={dataUrl} alt="QR Code" width={size} height={size} unoptimized className="rounded" />;
 }
 
 // ===== Helper Components =====

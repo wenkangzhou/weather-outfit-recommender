@@ -83,6 +83,7 @@ export interface OutfitHistoryItem {
   wornAt: string; // 穿着时间
   createdAt: string;
   comfortRating?: number; // 舒适度评分 1-5
+  thermalFeedback?: 'cold' | 'comfortable' | 'hot'; // 冷热反馈，用于调整后续推荐
   notes?: string; // 用户备注
 }
 

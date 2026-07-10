@@ -95,7 +95,25 @@
     "guestDescription": "Guest mode: data stored locally. Login to sync to cloud.",
     "preference": "Outfit Preferences",
     "temperatureTarget": "Temperature Target",
-    "defaultScene": "Default Scene"
+    "defaultScene": "Default Scene",
+    "defaultRunType": "Default Run Type"
+  },
+  "wardrobe": {
+    "searchPlaceholder": "Search name, type, or category",
+    "filter": {
+      "all": "All",
+      "commute": "Commute",
+      "running": "Running"
+    },
+    "sort": {
+      "label": "Sort wardrobe",
+      "recent": "Recently added",
+      "name": "Name",
+      "warmth": "Warmth"
+    },
+    "resultCount": "Showing {{count}} of {{total}} items",
+    "noResults": "No matching clothes",
+    "clearFilters": "Clear filters"
   },
   "types": {
     "t-shirt": "T-Shirt",
@@ -130,7 +148,19 @@
   },
   "common": {
     "loading": "Loading",
-    "add": "Add "
+    "add": "Add ",
+    "back": "Back"
+  },
+  "history": {
+    "deleteRecord": "Delete this outfit record",
+    "feedback": {
+      "label": "Feel",
+      "cold": "Too cold",
+      "comfortable": "Just right",
+      "hot": "Too hot",
+      "saved": "Feedback saved. Future outfits will adjust automatically",
+      "failed": "Could not save feedback"
+    }
   },
   "share": {
     "title": "Share Outfit",

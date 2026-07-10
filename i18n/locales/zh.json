@@ -95,7 +95,25 @@
     "guestDescription": "当前为访客模式，数据仅保存在当前设备。登录后可同步数据到云端。",
     "preference": "穿搭偏好",
     "temperatureTarget": "目标温度设置",
-    "defaultScene": "默认推荐场景"
+    "defaultScene": "默认推荐场景",
+    "defaultRunType": "默认跑步类型"
+  },
+  "wardrobe": {
+    "searchPlaceholder": "搜索名称、类型或分类",
+    "filter": {
+      "all": "全部",
+      "commute": "通勤",
+      "running": "跑步"
+    },
+    "sort": {
+      "label": "排序方式",
+      "recent": "最近添加",
+      "name": "按名称",
+      "warmth": "按保暖度"
+    },
+    "resultCount": "显示 {{count}} / {{total}} 件",
+    "noResults": "没有符合条件的衣物",
+    "clearFilters": "清除筛选"
   },
   "types": {
     "t-shirt": "T恤",
@@ -130,7 +148,19 @@
   },
   "common": {
     "loading": "加载中",
-    "add": "添加"
+    "add": "添加",
+    "back": "返回"
+  },
+  "history": {
+    "deleteRecord": "删除这条穿搭记录",
+    "feedback": {
+      "label": "体感",
+      "cold": "偏冷",
+      "comfortable": "正好",
+      "hot": "偏热",
+      "saved": "反馈已保存，后续推荐会自动调整",
+      "failed": "反馈保存失败"
+    }
   },
   "share": {
     "title": "分享穿搭",

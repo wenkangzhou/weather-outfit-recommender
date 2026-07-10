@@ -139,8 +139,9 @@ export default function TemperatureSettingsPage() {
               onChange={(e) => {
                 const val = parseInt(e.target.value);
                 setCommuteTargetTemp(val);
-                handleSave({ commuteTargetTemp: val });
               }}
+              onPointerUp={(e) => handleSave({ commuteTargetTemp: parseInt((e.target as HTMLInputElement).value) })}
+              onKeyUp={(e) => handleSave({ commuteTargetTemp: parseInt((e.target as HTMLInputElement).value) })}
               className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
             />
             <div className="flex justify-between text-xs text-muted-foreground mt-2">
@@ -167,8 +168,9 @@ export default function TemperatureSettingsPage() {
                 onChange={(e) => {
                   const val = parseInt(e.target.value);
                   setEasyRunTargetTemp(val);
-                  handleSave({ easyRunTargetTemp: val });
                 }}
+                onPointerUp={(e) => handleSave({ easyRunTargetTemp: parseInt((e.target as HTMLInputElement).value) })}
+                onKeyUp={(e) => handleSave({ easyRunTargetTemp: parseInt((e.target as HTMLInputElement).value) })}
                 className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
               />
               <div className="flex justify-between text-xs text-muted-foreground mt-2">
@@ -191,8 +193,9 @@ export default function TemperatureSettingsPage() {
                 onChange={(e) => {
                   const val = parseInt(e.target.value);
                   setLongRunTargetTemp(val);
-                  handleSave({ longRunTargetTemp: val });
                 }}
+                onPointerUp={(e) => handleSave({ longRunTargetTemp: parseInt((e.target as HTMLInputElement).value) })}
+                onKeyUp={(e) => handleSave({ longRunTargetTemp: parseInt((e.target as HTMLInputElement).value) })}
                 className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
               />
               <div className="flex justify-between text-xs text-muted-foreground mt-2">
@@ -215,8 +218,9 @@ export default function TemperatureSettingsPage() {
                 onChange={(e) => {
                   const val = parseInt(e.target.value);
                   setIntervalRunTargetTemp(val);
-                  handleSave({ intervalRunTargetTemp: val });
                 }}
+                onPointerUp={(e) => handleSave({ intervalRunTargetTemp: parseInt((e.target as HTMLInputElement).value) })}
+                onKeyUp={(e) => handleSave({ intervalRunTargetTemp: parseInt((e.target as HTMLInputElement).value) })}
                 className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
               />
               <div className="flex justify-between text-xs text-muted-foreground mt-2">
@@ -230,7 +234,7 @@ export default function TemperatureSettingsPage() {
           <div className="text-xs text-muted-foreground bg-muted/50 p-4 rounded-lg space-y-1">
             <p>• 目标温度越高，推荐的衣物越厚</p>
             <p>• 建议值：通勤 22-26°C，有氧跑 10-14°C，长距离 8-12°C，间歇跑 5-10°C</p>
-            <p>• 滑动即保存，无需确认</p>
+            <p>• 松开滑块即保存，无需确认</p>
           </div>
         </div>
       </div>

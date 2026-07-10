@@ -8,16 +8,19 @@ import { Card } from '@/components/ui/card';
 
 interface CityPickerProps {
   currentCity: string;
-  onSelect: (city: string) => void;
+  onSelect: (city: string) => void | Promise<void>;
+  onLocate?: () => Promise<void>;
   onClose: () => void;
 }
 
 type ViewMode = 'list' | 'provinces' | 'cities';
 
-export default function CityPicker({ currentCity, onSelect, onClose }: CityPickerProps) {
+export default function CityPicker({ currentCity, onSelect, onLocate, onClose }: CityPickerProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedProvince, setSelectedProvince] = useState<Province | null>(null);
   const [searchKeyword, setSearchKeyword] = useState('');
+  const [updating, setUpdating] = useState(false);
+  const [error, setError] = useState('');
 
   const searchResults = useMemo(() => {
     return searchCities(searchKeyword);
@@ -28,35 +31,53 @@ export default function CityPicker({ currentCity, onSelect, onClose }: CityPicke
     setViewMode('cities');
   };
 
-  const handleCitySelect = (city: City) => {
-    onSelect(city.name);
-    onClose();
+  const handleCitySelect = async (city: City) => {
+    setUpdating(true);
+    setError('');
+    try {
+      await onSelect(city.name);
+      onClose();
+    } catch {
+      setError('天气更新失败，请检查网络后重试');
+    } finally {
+      setUpdating(false);
+    }
   };
 
-  const handleLocate = () => {
-    // 使用浏览器定位
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          // 这里可以通过经纬度反查城市，简化处理先返回上海
-          // 实际项目中可以调用高德/百度地图的逆地理编码API
-          onSelect('上海');
-          onClose();
-        },
-        () => {
-          // 定位失败，默认上海
-          onSelect('上海');
-          onClose();
-        }
-      );
-    } else {
-      onSelect('上海');
+  const handleLocate = async () => {
+    if (!onLocate) return;
+    setUpdating(true);
+    setError('');
+    try {
+      await onLocate();
       onClose();
+    } catch {
+      setError('无法获取当前位置，请检查定位权限或手动选择城市');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleCurrentCitySelect = async () => {
+    setUpdating(true);
+    setError('');
+    try {
+      await onSelect(currentCity);
+      onClose();
+    } catch {
+      setError('天气更新失败，请检查网络后重试');
+    } finally {
+      setUpdating(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-background/95 backdrop-blur-xl z-50 animate-fade-in">
+    <div
+      className="fixed inset-0 bg-background/95 backdrop-blur-xl z-50 animate-fade-in"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="city-picker-title"
+    >
       <div className="max-w-md mx-auto h-full flex flex-col">
         {/* Header */}
         <header className="pt-8 pb-4 px-5 flex items-center gap-4 shrink-0">
@@ -69,7 +90,7 @@ export default function CityPicker({ currentCity, onSelect, onClose }: CityPicke
               <X size={20} />
             </Button>
           )}
-          <h1 className="text-lg font-semibold">
+          <h1 id="city-picker-title" className="text-lg font-semibold">
             {viewMode === 'cities' ? selectedProvince?.name : '选择城市'}
           </h1>
         </header>
@@ -98,6 +119,12 @@ export default function CityPicker({ currentCity, onSelect, onClose }: CityPicke
           </div>
         )}
 
+        {error && (
+          <div className="mx-5 mb-3 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
+            {error}
+          </div>
+        )}
+
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-5 pb-5">
           {viewMode === 'list' && !searchKeyword && (
@@ -106,10 +133,11 @@ export default function CityPicker({ currentCity, onSelect, onClose }: CityPicke
               <section>
                 <button
                   onClick={handleLocate}
+                  disabled={updating || !onLocate}
                   className="w-full flex items-center gap-3 p-4 bg-primary/5 border border-primary/20 rounded-xl text-primary"
                 >
-                  <Navigation size={20} />
-                  <span className="font-medium">定位到当前位置</span>
+                  <Navigation size={20} className={updating ? 'animate-pulse' : ''} />
+                  <span className="font-medium">{updating ? '正在更新天气...' : '定位到当前位置'}</span>
                 </button>
               </section>
 
@@ -117,7 +145,8 @@ export default function CityPicker({ currentCity, onSelect, onClose }: CityPicke
               <section>
                 <h3 className="text-sm font-medium text-muted-foreground mb-3">当前城市</h3>
                 <button
-                  onClick={() => onSelect(currentCity)}
+                  onClick={handleCurrentCitySelect}
+                  disabled={updating}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-full font-medium"
                 >
                   <MapPin size={16} />
@@ -133,6 +162,7 @@ export default function CityPicker({ currentCity, onSelect, onClose }: CityPicke
                     <button
                       key={city.code}
                       onClick={() => handleCitySelect(city)}
+                      disabled={updating}
                       className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                         currentCity === city.name
                           ? 'bg-primary text-primary-foreground'
@@ -165,6 +195,7 @@ export default function CityPicker({ currentCity, onSelect, onClose }: CityPicke
                   <button
                     key={city.code}
                     onClick={() => handleCitySelect(city)}
+                    disabled={updating}
                     className="w-full flex items-center justify-between p-4 bg-card border border-border rounded-xl hover:bg-accent transition-colors"
                   >
                     <div className="flex items-center gap-3">
@@ -206,6 +237,7 @@ export default function CityPicker({ currentCity, onSelect, onClose }: CityPicke
                 <button
                   key={city.code}
                   onClick={() => handleCitySelect(city)}
+                  disabled={updating}
                   className={`p-4 rounded-xl text-center transition-colors ${
                     currentCity === city.name
                       ? 'bg-primary text-primary-foreground'

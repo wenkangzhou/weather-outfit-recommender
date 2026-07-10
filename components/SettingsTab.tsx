@@ -34,7 +34,6 @@ export default function SettingsTab() {
   const [historyCount, setHistoryCount] = useState(0);
   const [showRunTypePicker, setShowRunTypePicker] = useState(false);
 
-  const [showDefaultScenePicker, setShowDefaultScenePicker] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [userStatus, setUserStatus] = useState<'guest' | 'registered'>('guest');
   const [userDisplay, setUserDisplay] = useState('');
@@ -198,7 +197,7 @@ export default function SettingsTab() {
   }
 
   return (
-    <div className="min-h-screen pb-16 animate-fade-in">
+    <div className="min-h-screen pb-32 animate-fade-in">
       {/* Header - 刘海屏安全区域 */}
       <div className="safe-area-header" />
 
@@ -319,6 +318,7 @@ export default function SettingsTab() {
               />
             </div>
           </Card>
+
         </section>
 
         {/* Preference - 穿搭偏好 */}
@@ -367,6 +367,21 @@ export default function SettingsTab() {
                 }}
               />
             </div>
+          </Card>
+
+          <Card className="settings-card">
+            <button
+              onClick={() => setShowRunTypePicker(true)}
+              className="flex w-full items-center justify-between"
+            >
+              <div className="text-left">
+                <div className="font-medium">{t('settings.defaultRunType')}</div>
+                <div className="text-sm text-muted-foreground">
+                  {RUN_TYPE_OPTIONS.find(option => option.type === defaultRunType)?.label}
+                </div>
+              </div>
+              <ChevronRight size={18} className="text-muted-foreground" />
+            </button>
           </Card>
         </section>
 
@@ -514,7 +529,9 @@ function LoginModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: ()
     const loginResult = await loginUser(email, password);
     
     if (loginResult.success) {
-      setStatus('登录成功');
+      setStatus(loginResult.mergedItems
+        ? `登录成功，已合并 ${loginResult.mergedItems} 条游客数据`
+        : '登录成功');
       setTimeout(() => {
         onSuccess();
         onClose();
@@ -525,19 +542,16 @@ function LoginModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: ()
       const registerResult = await registerUser(email, password);
       
       if (registerResult.success) {
-        setStatus('注册成功，正在登录...');
-        // 注册成功后自动登录
-        const autoLoginResult = await loginUser(email, password);
-        if (autoLoginResult.success) {
+        if (registerResult.pendingConfirmation) {
+          setError('注册成功！请查看邮箱完成验证，验证后返回登录。游客数据仍安全保存在本机。');
+        } else {
+          setStatus(registerResult.mergedItems
+            ? `注册成功，已合并 ${registerResult.mergedItems} 条游客数据`
+            : '注册成功');
           setTimeout(() => {
             onSuccess();
             onClose();
           }, 500);
-        } else if (autoLoginResult.error?.includes('Email not confirmed')) {
-          // 邮箱未验证，提示用户
-          setError('注册成功！请查看邮箱完成验证，或联系管理员关闭邮箱验证。');
-        } else {
-          setError('注册成功但登录失败：' + autoLoginResult.error);
         }
       } else if (registerResult.error?.includes('already registered')) {
         // 用户已存在但刚才登录失败，可能是密码错误
@@ -616,4 +630,3 @@ function LoginModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: ()
     </div>
   );
 }
-

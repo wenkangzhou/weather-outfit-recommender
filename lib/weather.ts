@@ -1,6 +1,24 @@
 import { WeatherData } from '@/types';
 
 const OPENWEATHER_API_KEY = process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY || '';
+const WEATHER_CACHE_KEY = 'feel_today_weather_cache';
+const WEATHER_CACHE_TTL = 30 * 60 * 1000;
+
+export function getCachedWeather(): WeatherData | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const cached = JSON.parse(localStorage.getItem(WEATHER_CACHE_KEY) || 'null');
+    if (!cached?.data || Date.now() - cached.savedAt > WEATHER_CACHE_TTL) return null;
+    return cached.data as WeatherData;
+  } catch {
+    return null;
+  }
+}
+
+export function cacheWeather(data: WeatherData) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify({ data, savedAt: Date.now() }));
+}
 
 // 天气代码映射
 const weatherCodeMap: Record<number, { description: string; isRain: boolean }> = {
@@ -130,7 +148,7 @@ export function getCurrentPosition(): Promise<GeolocationPosition> {
       },
       { 
         enableHighAccuracy: false, // 降低精度要求，提高成功率
-        timeout: 8000, 
+        timeout: 4000,
         maximumAge: 600000 
       }
     );
