@@ -2,6 +2,7 @@
 
 import { ClothingItem } from '@/types';
 import { useTranslation } from 'react-i18next';
+import { ClothingThumbnail } from './ClothingThumbnail';
 
 interface ClothingCardProps {
   item?: ClothingItem;
@@ -63,8 +64,12 @@ export default function ClothingCard({
       {/* 删除按钮 - 与更换/添加按钮放在同一行，而不是绝对定位 */}
       {/* 移到按钮区域统一处理 */}
 
-      {/* Icon */}
-      <span className="text-2xl shrink-0">{icon}</span>
+      {/* Real photo when available, category icon otherwise. */}
+      <ClothingThumbnail
+        imageUrl={item.imageUrl}
+        name={item.name}
+        fallbackIcon={icon}
+      />
       
       {/* Content */}
       <div className="flex-1 min-w-0">

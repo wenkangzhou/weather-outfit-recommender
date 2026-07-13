@@ -12,7 +12,9 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import ClothingCard from './ClothingCard';
 import CityPicker from './CityPicker';
+import { HeatSafetyAlert } from './HeatSafetyAlert';
 import { toast } from '@/hooks/use-toast';
+import { getRunningHeatSafetyLevel } from '@/lib/heatSafety';
 
 interface OutfitTabProps {
   weather?: WeatherData | null;
@@ -491,6 +493,11 @@ export default function OutfitTab({
 
   // 组装推荐理由（支持 i18n）- 使用 useMemo 缓存
   const formattedReasoning = useMemo(() => {
+    const feelsLike = weather?.feelsLike ?? weather?.temp;
+    if (feelsLike !== undefined && getRunningHeatSafetyLevel(scene, feelsLike) === 'danger') {
+      return t('outfit.reasoning.runningDanger');
+    }
+
     if (!recommendation?.reasoningData) return recommendation?.reasoning || '';
     
     const data = recommendation.reasoningData;
@@ -529,7 +536,7 @@ export default function OutfitTab({
     }
     
     return parts.join(' · ');
-  }, [recommendation?.reasoningData, recommendation?.reasoning, t]);
+  }, [recommendation?.reasoningData, recommendation?.reasoning, scene, t, weather?.feelsLike, weather?.temp]);
 
   // 生成天气提示
   const getWeatherTips = (): string[] => {
@@ -538,6 +545,14 @@ export default function OutfitTab({
     
     // 基于体感温度的提示
     const feelsLike = weather.feelsLike ?? weather.temp;
+    const heatSafetyLevel = getRunningHeatSafetyLevel(scene, feelsLike);
+    if (heatSafetyLevel === 'danger') {
+      return [t('outfit.heat.dangerShort'), t('outfit.heat.indoorShort')];
+    }
+    if (heatSafetyLevel === 'caution') {
+      tips.push(t('outfit.heat.cautionShort'));
+    }
+
     if (feelsLike < 5) {
       tips.push(t('outfit.tips.cold'));
     } else if (feelsLike < 10) {
@@ -548,9 +563,10 @@ export default function OutfitTab({
       tips.push(t('outfit.tips.hot'));
     }
     
-    if (weather.windSpeed > 8) {
+    // 炎热天气不再用“加防风外套”作为风力提示，避免与散热建议冲突。
+    if (feelsLike < 30 && weather.windSpeed > 8) {
       tips.push(t('outfit.tips.highWind'));
-    } else if (weather.windSpeed > 5) {
+    } else if (feelsLike < 30 && weather.windSpeed > 5) {
       tips.push(t('outfit.tips.wind'));
     }
     if (weather.humidity > 75) {
@@ -572,6 +588,8 @@ export default function OutfitTab({
   };
 
   const weatherTips = getWeatherTips();
+  const feelsLike = weather?.feelsLike ?? weather?.temp ?? 0;
+  const heatSafetyLevel = getRunningHeatSafetyLevel(scene, feelsLike);
 
   // 检查物品是否适合当前场景
   const isItemSuitableForScene = (item: ClothingItem) => {
@@ -705,6 +723,8 @@ export default function OutfitTab({
             </div>
           </div>
         </div>
+
+        <HeatSafetyAlert level={heatSafetyLevel} feelsLike={feelsLike} />
 
         {/* 虚拟衣物提示 */}
         {recommendation?.hasVirtualItems && (

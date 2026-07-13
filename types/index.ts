@@ -16,6 +16,7 @@ export type ClothingSubCategory =
 export interface ClothingItem {
   id: string;
   name: string;
+  brand?: string;
   category: ClothingCategory;
   subCategory: ClothingSubCategory;
   warmthLevel: number; // 1-10, 10 is warmest
@@ -25,6 +26,7 @@ export interface ClothingItem {
   hasPockets?: boolean; // 是否有口袋（用于长距离放能量胶）
   color?: string; // 可选，示例衣物可能没有
   imageUrl?: string;
+  imagePath?: string; // 私有存储中的对象路径；imageUrl 是临时签名预览地址
   createdAt: string;
   isVirtual?: boolean; // 是否为示例/虚拟衣物
 }

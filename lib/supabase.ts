@@ -67,6 +67,7 @@ function getUserContext() {
 interface ClothingItemRow {
   id: string;
   name: string;
+  brand?: string;
   category: any;
   sub_category: any;
   warmth_level: number;
@@ -75,7 +76,7 @@ interface ClothingItemRow {
   usage: 'commute' | 'running' | 'both';
   has_pockets: boolean;
   color: string;
-  image_url: string;
+  image_url: string | null;
   created_at: string;
   user_id?: string;
   temp_user_id?: string;
@@ -121,6 +122,49 @@ interface OutfitHistoryRow {
   run_type?: 'easy' | 'long' | 'interval';
 }
 
+function isDirectImageUrl(value: string): boolean {
+  return /^(https?:|data:|blob:)/i.test(value);
+}
+
+async function resolveClothingImage(storedValue?: string | null): Promise<{
+  imagePath?: string;
+  imageUrl?: string;
+}> {
+  if (!storedValue) return {};
+  if (isDirectImageUrl(storedValue) || !supabase) return { imageUrl: storedValue };
+
+  const { data, error } = await supabase.storage
+    .from('clothing-images')
+    .createSignedUrl(storedValue, 60 * 60 * 24);
+
+  if (error) {
+    console.error('create clothing image URL error:', error);
+    return { imagePath: storedValue };
+  }
+
+  return { imagePath: storedValue, imageUrl: data.signedUrl };
+}
+
+async function mapClothingItemRow(item: ClothingItemRow): Promise<ClothingItem> {
+  const image = await resolveClothingImage(item.image_url);
+  return {
+    id: item.id,
+    name: item.name,
+    brand: item.brand || undefined,
+    category: item.category as ClothingCategory,
+    subCategory: item.sub_category as ClothingSubCategory,
+    warmthLevel: item.warmth_level,
+    waterResistant: item.water_resistant,
+    windResistant: item.wind_resistant,
+    usage: item.usage || 'both',
+    hasPockets: item.has_pockets || false,
+    color: item.color,
+    ...image,
+    createdAt: item.created_at,
+    isVirtual: item.is_virtual || false,
+  };
+}
+
 // API functions
 export async function getClothingItems(): Promise<ClothingItem[]> {
   const { userId } = getUserContext();
@@ -134,7 +178,7 @@ export async function getClothingItems(): Promise<ClothingItem[]> {
   query = query.eq('user_id', userId);
   
   // 数据库没有 is_virtual 列，查询时排除
-  query = query.select('id,name,category,sub_category,warmth_level,water_resistant,wind_resistant,usage,has_pockets,color,image_url,created_at,user_id,temp_user_id');
+  query = query.select('id,name,brand,category,sub_category,warmth_level,water_resistant,wind_resistant,usage,has_pockets,color,image_url,created_at,user_id,temp_user_id');
   
   const { data, error } = await query;
   
@@ -145,22 +189,7 @@ export async function getClothingItems(): Promise<ClothingItem[]> {
   
   const rows = (data || []) as ClothingItemRow[];
   
-  return rows.map((item) => ({
-    id: item.id,
-    name: item.name,
-    category: item.category as ClothingCategory,
-    subCategory: item.sub_category as ClothingSubCategory,
-    warmthLevel: item.warmth_level,
-    waterResistant: item.water_resistant,
-    windResistant: item.wind_resistant,
-    usage: item.usage || 'both',
-    hasPockets: item.has_pockets || false,
-    color: item.color,
-    imageUrl: item.image_url,
-    createdAt: item.created_at,
-    // 数据库没有 is_virtual 列，默认 false
-    isVirtual: false,
-  }));
+  return Promise.all(rows.map(mapClothingItemRow));
 }
 
 export async function addClothingItem(item: Omit<ClothingItem, 'id' | 'createdAt'>): Promise<ClothingItem> {
@@ -169,7 +198,7 @@ export async function addClothingItem(item: Omit<ClothingItem, 'id' | 'createdAt
   if (!isConfigured || !supabase || !userId) {
     const newItem: ClothingItem = {
       ...item,
-      id: 'demo_' + Date.now(),
+      id: `demo_${globalThis.crypto?.randomUUID?.() || `${Date.now()}_${Math.random().toString(16).slice(2)}`}`,
       createdAt: new Date().toISOString(),
     };
     setDemoItems([newItem, ...getDemoItems()]);
@@ -178,6 +207,7 @@ export async function addClothingItem(item: Omit<ClothingItem, 'id' | 'createdAt
   
   const insertData: any = {
     name: item.name,
+    brand: item.brand || null,
     category: item.category,
     sub_category: item.subCategory,
     warmth_level: item.warmthLevel,
@@ -186,7 +216,7 @@ export async function addClothingItem(item: Omit<ClothingItem, 'id' | 'createdAt
     usage: item.usage,
     has_pockets: item.hasPockets || false,
     color: item.color,
-    image_url: item.imageUrl,
+    image_url: item.imagePath || item.imageUrl || null,
     created_at: new Date().toISOString(),
     // 注意：数据库没有 is_virtual 列，不发送该字段
   };
@@ -208,22 +238,7 @@ export async function addClothingItem(item: Omit<ClothingItem, 'id' | 'createdAt
   const record = first(data as ClothingItemRow[]);
   if (!record) throw new Error('No data returned');
   
-  return {
-    id: record.id,
-    name: record.name,
-    category: record.category as ClothingCategory,
-    subCategory: record.sub_category as ClothingSubCategory,
-    warmthLevel: record.warmth_level,
-    waterResistant: record.water_resistant,
-    windResistant: record.wind_resistant,
-    usage: record.usage || 'both',
-    hasPockets: record.has_pockets || false,
-    color: record.color,
-    imageUrl: record.image_url,
-    createdAt: record.created_at,
-    // 数据库没有 is_virtual 列，默认 false
-    isVirtual: false,
-  };
+  return mapClothingItemRow(record);
 }
 
 export async function updateClothingItem(
@@ -245,6 +260,7 @@ export async function updateClothingItem(
   
   const dbUpdates: any = {};
   if (updates.name !== undefined) dbUpdates.name = updates.name;
+  if (updates.brand !== undefined) dbUpdates.brand = updates.brand || null;
   if (updates.category !== undefined) dbUpdates.category = updates.category;
   if (updates.subCategory !== undefined) dbUpdates.sub_category = updates.subCategory;
   if (updates.warmthLevel !== undefined) dbUpdates.warmth_level = updates.warmthLevel;
@@ -253,6 +269,12 @@ export async function updateClothingItem(
   if (updates.usage !== undefined) dbUpdates.usage = updates.usage;
   if (updates.hasPockets !== undefined) dbUpdates.has_pockets = updates.hasPockets;
   if (updates.color !== undefined) dbUpdates.color = updates.color;
+  if (updates.imagePath !== undefined) {
+    dbUpdates.image_url = updates.imagePath || null;
+  } else if (updates.imageUrl !== undefined && isDirectImageUrl(updates.imageUrl)) {
+    // Legacy/direct URLs and guest data URLs remain supported during migration.
+    dbUpdates.image_url = updates.imageUrl || null;
+  }
   // 注意：数据库没有 is_virtual 列，不更新该字段
   
   let query = supabase
@@ -269,21 +291,7 @@ export async function updateClothingItem(
   const record = first(data as ClothingItemRow[]);
   if (!record) throw new Error('Update failed');
   
-  return {
-    id: record.id,
-    name: record.name,
-    category: record.category as ClothingCategory,
-    subCategory: record.sub_category as ClothingSubCategory,
-    warmthLevel: record.warmth_level,
-    waterResistant: record.water_resistant,
-    windResistant: record.wind_resistant,
-    usage: record.usage || 'both',
-    hasPockets: record.has_pockets || false,
-    color: record.color,
-    imageUrl: record.image_url,
-    createdAt: record.created_at,
-    isVirtual: record.is_virtual || false,
-  };
+  return mapClothingItemRow(record);
 }
 
 export async function deleteClothingItem(id: string): Promise<void> {
@@ -294,6 +302,14 @@ export async function deleteClothingItem(id: string): Promise<void> {
     return;
   }
   
+  const { data: existingRows } = await supabase
+    .from('clothing_items')
+    .select('image_url')
+    .eq('id', id)
+    .eq('user_id', userId)
+    .limit(1);
+  const storedImage = first(existingRows as { image_url: string | null }[])?.image_url;
+
   let query = supabase
     .from('clothing_items')
     .delete()
@@ -304,6 +320,9 @@ export async function deleteClothingItem(id: string): Promise<void> {
   const { error } = await query;
   
   if (error) throw error;
+  if (storedImage && !isDirectImageUrl(storedImage)) {
+    await deleteClothingImage(storedImage);
+  }
 }
 
 // Outfit History API
@@ -690,24 +709,95 @@ export async function saveUserPreferences(prefs: Omit<UserPreferences, 'id'>): P
   }
 }
 
-export async function uploadClothingImage(file: File): Promise<string> {
-  if (!isConfigured || !supabase) {
-    return URL.createObjectURL(file);
+export interface ClothingImageUpload {
+  imageUrl: string;
+  imagePath?: string;
+}
+
+const ALLOWED_CLOTHING_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const MAX_SOURCE_IMAGE_BYTES = 10 * 1024 * 1024;
+const MAX_STORED_IMAGE_BYTES = 5 * 1024 * 1024;
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error || new Error('IMAGE_READ_FAILED'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function compressClothingImage(file: File): Promise<Blob> {
+  if (!ALLOWED_CLOTHING_IMAGE_TYPES.has(file.type)) throw new Error('INVALID_IMAGE_TYPE');
+  if (file.size > MAX_SOURCE_IMAGE_BYTES) throw new Error('IMAGE_TOO_LARGE');
+
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const nextImage = new window.Image();
+      nextImage.onload = () => resolve(nextImage);
+      nextImage.onerror = () => reject(new Error('IMAGE_READ_FAILED'));
+      nextImage.src = objectUrl;
+    });
+
+    const maxDimension = 1400;
+    const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('IMAGE_PROCESSING_FAILED');
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+    const compressed = await new Promise<Blob | null>(resolve => {
+      canvas.toBlob(resolve, 'image/webp', 0.82);
+    });
+    const result = compressed || file;
+    if (result.size > MAX_STORED_IMAGE_BYTES) throw new Error('IMAGE_TOO_LARGE');
+    return result;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
   }
-  
-  const fileName = `${Date.now()}_${file.name}`;
-  const { error } = await supabase
-    .storage
+}
+
+export async function uploadClothingImage(file: File): Promise<ClothingImageUpload> {
+  const image = await compressClothingImage(file);
+  const { userId } = getUserContext();
+
+  // Guests keep a compressed, persistent local preview. A photo is never
+  // required, and it is not uploaded before the user signs in.
+  if (!isConfigured || !supabase || !userId) {
+    return { imageUrl: await blobToDataUrl(image) };
+  }
+
+  const extension = image.type === 'image/webp' ? 'webp' : image.type === 'image/png' ? 'png' : 'jpg';
+  const imagePath = `${userId}/${globalThis.crypto.randomUUID()}.${extension}`;
+  const { error } = await supabase.storage
     .from('clothing-images')
-    .upload(fileName, file);
-  
+    .upload(imagePath, image, {
+      contentType: image.type,
+      cacheControl: '3600',
+      upsert: false,
+    });
+
   if (error) {
-    console.error('upload error:', error);
-    return URL.createObjectURL(file);
+    console.error('upload clothing image error:', error);
+    throw error;
   }
-  
-  const { data } = supabase.storage.from('clothing-images').getPublicUrl(fileName);
-  return data.publicUrl;
+
+  const resolved = await resolveClothingImage(imagePath);
+  if (!resolved.imageUrl) {
+    await supabase.storage.from('clothing-images').remove([imagePath]);
+    throw new Error('IMAGE_URL_FAILED');
+  }
+
+  return { imagePath, imageUrl: resolved.imageUrl };
+}
+
+export async function deleteClothingImage(imagePath?: string): Promise<void> {
+  if (!imagePath || !isConfigured || !supabase) return;
+  const { error } = await supabase.storage.from('clothing-images').remove([imagePath]);
+  if (error) console.error('delete clothing image error:', error);
 }
 
 export interface LocalGuestDataSnapshot {
@@ -756,7 +846,7 @@ export async function mergeLocalGuestDataIntoAccount(
   if (snapshot.items.length > 0) {
     const { data: existingItems, error: existingError } = await supabase
       .from('clothing_items')
-      .select('name,category,sub_category,warmth_level')
+      .select('name,brand,category,sub_category,warmth_level')
       .eq('user_id', userId);
     if (existingError) throw existingError;
 
@@ -769,6 +859,7 @@ export async function mergeLocalGuestDataIntoAccount(
       .filter(item => !signatures.has(`${item.name}|${item.category}|${item.subCategory}|${item.warmthLevel}`))
       .map(item => ({
         name: item.name,
+        brand: item.brand || null,
         category: item.category,
         sub_category: item.subCategory,
         warmth_level: item.warmthLevel,
@@ -777,7 +868,7 @@ export async function mergeLocalGuestDataIntoAccount(
         usage: item.usage,
         has_pockets: item.hasPockets || false,
         color: item.color,
-        image_url: item.imageUrl,
+        image_url: item.imagePath || item.imageUrl || null,
         created_at: item.createdAt || new Date().toISOString(),
         user_id: userId,
         temp_user_id: null,

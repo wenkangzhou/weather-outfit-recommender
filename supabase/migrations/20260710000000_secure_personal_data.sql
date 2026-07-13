@@ -113,7 +113,12 @@ CREATE POLICY "Users can delete own outfit shares"
   ON outfit_shares FOR DELETE TO authenticated
   USING (user_id = auth.uid());
 
-CREATE OR REPLACE FUNCTION get_outfit_share(p_id UUID)
+-- Existing deployments used TEXT ids while fresh installs use UUID ids. Keep
+-- one TEXT RPC signature and compare through text so both schemas are handled.
+DROP FUNCTION IF EXISTS get_outfit_share(UUID);
+DROP FUNCTION IF EXISTS get_outfit_share(TEXT);
+
+CREATE FUNCTION get_outfit_share(p_id TEXT)
 RETURNS JSONB
 LANGUAGE sql
 SECURITY DEFINER
@@ -128,11 +133,11 @@ AS $$
     'createdAt', created_at
   )
   FROM outfit_shares
-  WHERE id = p_id;
+  WHERE id::text = p_id;
 $$;
 
-REVOKE ALL ON FUNCTION get_outfit_share(UUID) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION get_outfit_share(UUID) TO anon, authenticated;
+REVOKE ALL ON FUNCTION get_outfit_share(TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION get_outfit_share(TEXT) TO anon, authenticated;
 
 -- Replace the unrestricted delete RPC with an owner-checked implementation.
 CREATE OR REPLACE FUNCTION delete_outfit_history_by_id(p_id UUID)

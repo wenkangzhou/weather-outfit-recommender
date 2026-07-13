@@ -928,11 +928,17 @@ function generateMinimumWarmthOutfit(
     : undefined;
   
   // 生成天气提示
-  const weatherTips = [
-    '天气炎热，建议晨跑或夜跑避开高温',
-    '注意补水和防晒',
-    ...generateWeatherTips(weather)
-  ];
+  const feelsLike = weather.feelsLike ?? weather.temp;
+  const weatherTips = scene === 'running' && feelsLike >= 40
+    ? [
+        '危险高温，不建议户外跑步',
+        '改为室内训练，或推迟到更凉爽的时段',
+      ]
+    : [
+        '天气炎热，建议晨跑或夜跑避开高温',
+        '注意补水和防晒',
+        ...generateWeatherTips(weather),
+      ];
   
   const reasoningData = generateReasoningData(
     weather, 

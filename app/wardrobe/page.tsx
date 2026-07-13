@@ -3,12 +3,21 @@
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import { X, Plus, ChevronLeft, Pencil, Trash2, ChevronDown, Search } from 'lucide-react';
+import { X, Plus, ChevronLeft, Pencil, Trash2, ChevronDown, Search, Sparkles, ImagePlus } from 'lucide-react';
 import { ClothingItem, ClothingCategory, ClothingSubCategory } from '@/types';
-import { getClothingItems, addClothingItem, updateClothingItem, deleteClothingItem } from '@/lib/supabase';
+import {
+  getClothingItems,
+  addClothingItem,
+  updateClothingItem,
+  deleteClothingItem,
+  uploadClothingImage,
+  deleteClothingImage,
+} from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { Card } from '@/components/ui/card';
+import { QuickWardrobeBuilder, QuickWardrobeDraft } from '@/components/wardrobe/QuickWardrobeBuilder';
+import { ClothingThumbnail } from '@/components/ClothingThumbnail';
 
 const CATEGORIES: { type: ClothingCategory; label: string; icon: string; showWaterWind: boolean }[] = [
   { type: 'top', label: '上衣', icon: '👕', showWaterWind: true },
@@ -16,66 +25,6 @@ const CATEGORIES: { type: ClothingCategory; label: string; icon: string; showWat
   { type: 'socks', label: '袜子', icon: '🧦', showWaterWind: false },
   { type: 'shoes', label: '鞋子', icon: '👟', showWaterWind: true },
   { type: 'hat', label: '帽子', icon: '🧢', showWaterWind: true },
-];
-
-// 快速添加模板 - 预设常用套装
-interface QuickTemplate {
-  id: string;
-  name: string;
-  icon: string;
-  description: string;
-  items: Omit<ClothingItem, 'id' | 'createdAt'>[];
-}
-
-const QUICK_TEMPLATES: QuickTemplate[] = [
-  {
-    id: 'runner_basic',
-    name: '跑步基础套装',
-    icon: '🏃',
-    description: '夏季跑步三件套',
-    items: [
-      { name: '速干短袖T恤', category: 'top', subCategory: 't-shirt', warmthLevel: 2, waterResistant: false, windResistant: false, usage: 'running', hasPockets: false, color: '#3b82f6' },
-      { name: '运动短裤', category: 'bottom', subCategory: 'shorts', warmthLevel: 1, waterResistant: false, windResistant: false, usage: 'running', hasPockets: true, color: '#1f2937' },
-      { name: '跑步袜', category: 'socks', subCategory: 'short-socks', warmthLevel: 1, waterResistant: false, windResistant: false, usage: 'running', hasPockets: false, color: '#ffffff' },
-      { name: '跑鞋', category: 'shoes', subCategory: 'running-shoes', warmthLevel: 1, waterResistant: false, windResistant: false, usage: 'running', hasPockets: false, color: '#f97316' },
-    ],
-  },
-  {
-    id: 'commute_basic',
-    name: '通勤基础套装',
-    icon: '🚶',
-    description: '日常通勤四件套',
-    items: [
-      { name: '纯棉长袖T恤', category: 'top', subCategory: 'long-sleeve', warmthLevel: 3, waterResistant: false, windResistant: false, usage: 'commute', hasPockets: false, color: '#e5e7eb' },
-      { name: '休闲长裤', category: 'bottom', subCategory: 'pants', warmthLevel: 2, waterResistant: false, windResistant: false, usage: 'commute', hasPockets: true, color: '#374151' },
-      { name: '棉袜', category: 'socks', subCategory: 'long-socks', warmthLevel: 2, waterResistant: false, windResistant: false, usage: 'commute', hasPockets: false, color: '#9ca3af' },
-      { name: '休闲鞋', category: 'shoes', subCategory: 'casual-shoes', warmthLevel: 1, waterResistant: false, windResistant: false, usage: 'commute', hasPockets: false, color: '#4b5563' },
-    ],
-  },
-  {
-    id: 'winter_runner',
-    name: '冬季跑步套装',
-    icon: '❄️',
-    description: '保暖跑步五件套',
-    items: [
-      { name: '速干打底长袖', category: 'top', subCategory: 'long-sleeve', warmthLevel: 3, waterResistant: false, windResistant: false, usage: 'running', hasPockets: false, color: '#1e40af' },
-      { name: '抓绒保暖层', category: 'top', subCategory: 'fleece', warmthLevel: 5, waterResistant: false, windResistant: false, usage: 'running', hasPockets: false, color: '#065f46' },
-      { name: '运动长裤', category: 'bottom', subCategory: 'pants', warmthLevel: 3, waterResistant: false, windResistant: false, usage: 'running', hasPockets: true, color: '#111827' },
-      { name: '厚羊毛袜', category: 'socks', subCategory: 'thick-socks', warmthLevel: 4, waterResistant: false, windResistant: false, usage: 'running', hasPockets: false, color: '#78350f' },
-      { name: '跑鞋', category: 'shoes', subCategory: 'running-shoes', warmthLevel: 1, waterResistant: false, windResistant: false, usage: 'running', hasPockets: false, color: '#dc2626' },
-    ],
-  },
-  {
-    id: 'rainy_day',
-    name: '雨天跑步套装',
-    icon: '🌧️',
-    description: '防雨跑步三件套',
-    items: [
-      { name: '皮肤衣', category: 'top', subCategory: 'wind-shirt', warmthLevel: 2, waterResistant: true, windResistant: true, usage: 'running', hasPockets: false, color: '#06b6d4' },
-      { name: '运动短裤', category: 'bottom', subCategory: 'shorts', warmthLevel: 1, waterResistant: false, windResistant: false, usage: 'running', hasPockets: true, color: '#1f2937' },
-      { name: '跑鞋', category: 'shoes', subCategory: 'running-shoes', warmthLevel: 1, waterResistant: true, windResistant: false, usage: 'running', hasPockets: false, color: '#2563eb' },
-    ],
-  },
 ];
 
 const SUB_CATEGORIES: Record<ClothingCategory, { type: ClothingSubCategory; label: string }[]> = {
@@ -116,10 +65,43 @@ const SUB_CATEGORIES: Record<ClothingCategory, { type: ClothingSubCategory; labe
   ],
 };
 
-const USAGE_OPTIONS: { value: 'commute' | 'running' | 'both'; label: string }[] = [
-  { value: 'commute', label: '通勤' },
-  { value: 'running', label: '跑步' },
-  { value: 'both', label: '两者皆可' },
+const USAGE_OPTIONS: { value: 'commute' | 'running' | 'both'; labelKey: string }[] = [
+  { value: 'commute', labelKey: 'tags.commute' },
+  { value: 'running', labelKey: 'tags.running' },
+  { value: 'both', labelKey: 'tags.both' },
+];
+
+const DEFAULT_WARMTH: Record<ClothingSubCategory, number> = {
+  't-shirt': 2,
+  'long-sleeve': 3,
+  sweater: 6,
+  hoodie: 5,
+  jacket: 5,
+  'down-jacket': 9,
+  windbreaker: 4,
+  fleece: 6,
+  'cotton-padded': 8,
+  'wind-shirt': 2,
+  shirt: 3,
+  'tank-top': 1,
+  shorts: 1,
+  'half-tights': 2,
+  pants: 3,
+  'short-socks': 1,
+  'long-socks': 2,
+  'thick-socks': 4,
+  'hiking-shoes': 2,
+  slippers: 1,
+  'casual-shoes': 1,
+  'running-shoes': 1,
+  'summer-hat': 1,
+  beanie: 5,
+  'running-hat': 1,
+};
+
+const POPULAR_BRANDS = [
+  'Uniqlo', 'Nike', 'Adidas', 'Decathlon', 'Lululemon',
+  'The North Face', "Arc'teryx", 'Salomon', 'HOKA', 'On',
 ];
 
 const INITIAL_SHOW_COUNT = 4;
@@ -205,15 +187,18 @@ function WardrobeContent() {
     await addClothingItem(item);
     await loadItems();
     setShowAddModal(false);
+    setCopyingItem(null);
+    setDefaultCategory(undefined);
   };
   
-  // 快速添加模板（批量添加）
-  const handleQuickAdd = async (template: QuickTemplate) => {
-    // 依次添加模板中的物品
-    for (const item of template.items) {
-      await addClothingItem(item);
-    }
+  // 用户只添加明确勾选、确认自己拥有的单品。
+  const handleQuickAdd = async (selectedItems: QuickWardrobeDraft[]) => {
+    await Promise.all(selectedItems.map(item => addClothingItem(item)));
     await loadItems();
+    toast({
+      title: t('wardrobe.quick.addedTitle'),
+      description: t('wardrobe.quick.addedDescription', { count: selectedItems.length }),
+    });
   };
   
   // 复制衣物 - 预填充数据并打开添加表单
@@ -224,14 +209,6 @@ function WardrobeContent() {
     setShowAddModal(true);
   };
   
-  const handleCopySubmit = async (item: Omit<ClothingItem, 'id' | 'createdAt'>) => {
-    await addClothingItem(item);
-    await loadItems();
-    setShowAddModal(false);
-    setCopyingItem(null);
-    toast({ title: '复制成功', description: `已添加 ${item.name}` });
-  };
-
   const handleUpdateItem = async (id: string, updates: Partial<Omit<ClothingItem, 'id' | 'createdAt'>>) => {
     await updateClothingItem(id, updates);
     // 编辑保存后从虚拟物品列表中移除（用户已确认这是真实衣物）
@@ -267,6 +244,7 @@ function WardrobeContent() {
     const nextItems = itemsWithVirtualFlag.filter(item => {
       const matchesSearch = !query || [
         item.name,
+        item.brand,
         t(`types.${item.subCategory}`),
         CATEGORIES.find(category => category.type === item.category)?.label,
       ].some(value => value?.toLocaleLowerCase().includes(query));
@@ -359,12 +337,11 @@ function WardrobeContent() {
               </div>
               <p className="text-muted-foreground mb-6">{t('outfit.emptyWardrobe')}</p>
               
-              {/* 快速添加模板 */}
-              <QuickAddTemplates 
-                onAddTemplate={handleQuickAdd}
-                onAddSingle={(category) => {
+              <QuickWardrobeBuilder
+                onAddItems={handleQuickAdd}
+                onManualAdd={(category) => {
                   setEditingItem(null);
-                  setDefaultCategory(category || 'top');
+                  setDefaultCategory(category);
                   setShowAddModal(true);
                 }}
               />
@@ -446,10 +423,10 @@ function WardrobeContent() {
       {showQuickAddModal && (
         <QuickAddModal
           onClose={() => setShowQuickAddModal(false)}
-          onAddTemplate={handleQuickAdd}
-          onAddSingle={(category) => {
+          onAddItems={handleQuickAdd}
+          onManualAdd={(category) => {
             setEditingItem(null);
-            setDefaultCategory(category || 'top');
+            setDefaultCategory(category);
             setShowAddModal(true);
             setShowQuickAddModal(false);
           }}
@@ -523,7 +500,7 @@ function CategorySection({
       {/* Items List */}
       {items.length > 0 ? (
         <div className="divide-y divide-border/50">
-          {displayedItems.map((item, index) => {
+          {displayedItems.map((item) => {
             const isActive = activeItemId === item.id;
             return (
               <div
@@ -556,12 +533,21 @@ function CategorySection({
                   </svg>
                 </button>
 
-                {/* Index Number */}
-                <span className="text-xs text-muted-foreground w-5">{index + 1}</span>
+                {/* Real photo when available, category icon otherwise. */}
+                <ClothingThumbnail
+                  imageUrl={item.imageUrl}
+                  name={item.name}
+                  fallbackIcon={category.icon}
+                />
 
                 {/* Info */}
                 <div className="flex-1 min-w-0 pr-6">
                   <div className="flex items-center gap-2">
+                    {item.brand && (
+                      <span className="max-w-20 truncate rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        {item.brand}
+                      </span>
+                    )}
                     <div className="font-medium truncate max-w-[200px]">{item.name}</div>
                     {/* 保暖值 - 算法核心参数 */}
                     <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0 ${
@@ -689,8 +675,8 @@ function AddEditItemModal({
   copyingItem?: ClothingItem | null;
   defaultCategory?: ClothingCategory;
   onClose: () => void;
-  onAdd: (item: Omit<ClothingItem, 'id' | 'createdAt'>) => void;
-  onUpdate: (id: string, updates: Partial<Omit<ClothingItem, 'id' | 'createdAt'>>) => void;
+  onAdd: (item: Omit<ClothingItem, 'id' | 'createdAt'>) => Promise<void>;
+  onUpdate: (id: string, updates: Partial<Omit<ClothingItem, 'id' | 'createdAt'>>) => Promise<void>;
 }) {
   const { t } = useTranslation();
   const [mounted, setMounted] = useState(false);
@@ -699,12 +685,19 @@ function AddEditItemModal({
   const selectedCategory = item?.category || copyingItem?.category || defaultCategory;
   
   const [name, setName] = useState('');
+  const [brand, setBrand] = useState('');
   const [subCategory, setSubCategory] = useState<ClothingSubCategory | null>(null);
   const [warmthLevel, setWarmthLevel] = useState(5);
   const [waterResistant, setWaterResistant] = useState(false);
   const [windResistant, setWindResistant] = useState(false);
   const [hasPockets, setHasPockets] = useState(false);
   const [usage, setUsage] = useState<'commute' | 'running' | 'both'>('both');
+  const [nameIsCustom, setNameIsCustom] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState('');
+  const [imageRemoved, setImageRemoved] = useState(false);
   
   // 客户端挂载后再初始化表单值，避免 SSR/客户端不一致
   useEffect(() => {
@@ -713,43 +706,122 @@ function AddEditItemModal({
     if (sourceItem) {
       // 编辑模式或复制模式：预填充数据
       setName(sourceItem.name + (isCopying ? ' (副本)' : ''));
+      setBrand(sourceItem.brand || '');
       setSubCategory(sourceItem.subCategory || null);
       setWarmthLevel(sourceItem.warmthLevel || 5);
       setWaterResistant(sourceItem.waterResistant || false);
       setWindResistant(sourceItem.windResistant || false);
       setHasPockets(sourceItem.hasPockets || false);
       setUsage(sourceItem.usage || 'both');
+      setNameIsCustom(true);
     } else {
       // 新增模式：清空表单
       setName('');
+      setBrand('');
       setSubCategory(null);
       setWarmthLevel(5);
       setWaterResistant(false);
       setWindResistant(false);
       setHasPockets(false);
       setUsage('both');
+      setNameIsCustom(false);
     }
+    // A copied item should get its own optional photo instead of reusing the
+    // original item's storage object.
+    setImageFile(null);
+    setImagePreview(item?.imageUrl || '');
+    setImageRemoved(false);
+    setShowAdvanced(false);
   }, [item, copyingItem, isCopying]);
 
-  const handleSubmit = () => {
+  useEffect(() => () => {
+    if (imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview);
+  }, [imagePreview]);
+
+  const autoNameFor = (nextBrand: string, nextSubCategory: ClothingSubCategory | null) => {
+    if (!selectedCategory || !nextSubCategory) return '';
+    const typeLabel = SUB_CATEGORIES[selectedCategory].find(option => option.type === nextSubCategory)?.label || '';
+    return [nextBrand.trim(), typeLabel].filter(Boolean).join(' ');
+  };
+
+  const handleSubCategoryChange = (nextSubCategory: ClothingSubCategory) => {
+    setSubCategory(nextSubCategory);
+    setWarmthLevel(DEFAULT_WARMTH[nextSubCategory]);
+    if (!nameIsCustom) setName(autoNameFor(brand, nextSubCategory));
+  };
+
+  const handleBrandChange = (nextBrand: string) => {
+    setBrand(nextBrand);
+    if (!nameIsCustom) setName(autoNameFor(nextBrand, subCategory));
+  };
+
+  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024) {
+      toast({
+        title: t('wardrobe.editor.photoInvalidTitle'),
+        description: t('wardrobe.editor.photoInvalidDescription'),
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+    setImageRemoved(false);
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setImagePreview('');
+    setImageRemoved(true);
+  };
+
+  const handleSubmit = async () => {
     if (!selectedCategory || !subCategory || !name.trim()) return;
     
-    const data = {
-      name: name.trim(),
-      category: selectedCategory,
-      subCategory,
-      warmthLevel,
-      waterResistant: selectedCategory !== 'socks' ? waterResistant : false,
-      windResistant: selectedCategory !== 'socks' ? windResistant : false,
-      usage,
-      hasPockets: selectedCategory === 'bottom' ? hasPockets : false,
-      color: '#000000',
-    };
+    setSaving(true);
+    let newImagePath: string | undefined;
+    try {
+      const uploadedImage = imageFile ? await uploadClothingImage(imageFile) : undefined;
+      newImagePath = uploadedImage?.imagePath;
+      const data = {
+        name: name.trim(),
+        brand: brand.trim() || undefined,
+        category: selectedCategory,
+        subCategory,
+        warmthLevel,
+        waterResistant: selectedCategory !== 'socks' ? waterResistant : false,
+        windResistant: selectedCategory !== 'socks' ? windResistant : false,
+        usage,
+        hasPockets: selectedCategory === 'bottom' ? hasPockets : false,
+        color: '#000000',
+        imagePath: imageRemoved ? '' : uploadedImage?.imagePath ?? item?.imagePath,
+        imageUrl: imageRemoved ? '' : uploadedImage?.imageUrl ?? item?.imageUrl,
+      };
 
-    if (isEditing && item) {
-      onUpdate(item.id, data);
-    } else {
-      onAdd(data);
+      if (isEditing && item) {
+        await onUpdate(item.id, data);
+      } else {
+        await onAdd(data);
+      }
+
+      if (item?.imagePath && (imageRemoved || uploadedImage)) {
+        await deleteClothingImage(item.imagePath);
+      }
+    } catch (error) {
+      if (newImagePath) await deleteClothingImage(newImagePath);
+      console.error('save wardrobe item error:', error);
+      toast({
+        title: t('wardrobe.editor.saveFailed'),
+        description: t('wardrobe.editor.saveFailedDescription'),
+        variant: 'destructive',
+      });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -786,6 +858,18 @@ function AddEditItemModal({
         {/* Modal Content */}
         <div className="flex-1 overflow-y-auto px-5 py-4">
           <div className="space-y-5">
+            {!isEditing && !isCopying && (
+              <div className="rounded-2xl border border-primary/15 bg-primary/5 p-4">
+                <div className="flex items-start gap-3">
+                  <Sparkles size={18} className="mt-0.5 shrink-0 text-primary" />
+                  <div>
+                    <p className="text-sm font-medium">{t('wardrobe.editor.fastTitle')}</p>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">{t('wardrobe.editor.fastDescription')}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Category Display */}
             <div>
               <label className="text-sm font-medium text-muted-foreground mb-2 block">分类</label>
@@ -802,7 +886,8 @@ function AddEditItemModal({
                 {selectedCategory && SUB_CATEGORIES[selectedCategory].map(sub => (
                   <button
                     key={sub.type}
-                    onClick={() => setSubCategory(sub.type)}
+                    type="button"
+                    onClick={() => handleSubCategoryChange(sub.type)}
                     className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                       subCategory === sub.type
                         ? 'bg-primary text-primary-foreground'
@@ -815,86 +900,193 @@ function AddEditItemModal({
               </div>
             </div>
 
+            {/* Brand is optional and can be completed later. */}
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <label htmlFor="wardrobe-brand" className="text-sm font-medium text-muted-foreground">
+                  {t('wardrobe.editor.brand')}
+                </label>
+                <span className="text-xs text-muted-foreground">{t('wardrobe.editor.optional')}</span>
+              </div>
+              <input
+                id="wardrobe-brand"
+                type="text"
+                list="wardrobe-brand-options"
+                value={brand}
+                onChange={event => handleBrandChange(event.target.value)}
+                placeholder={t('wardrobe.editor.brandPlaceholder')}
+                className="input-field"
+              />
+              <datalist id="wardrobe-brand-options">
+                {POPULAR_BRANDS.map(option => <option key={option} value={option} />)}
+              </datalist>
+              <div className="mt-2 flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                {POPULAR_BRANDS.slice(0, 6).map(option => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => handleBrandChange(brand === option ? '' : option)}
+                    className={`shrink-0 rounded-full px-3 py-1.5 text-xs transition-colors ${
+                      brand === option
+                        ? 'bg-foreground text-background'
+                        : 'bg-muted text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Name */}
             <div>
-              <label className="text-sm font-medium text-muted-foreground mb-2 block">名称</label>
+              <div className="mb-2 flex items-center justify-between">
+                <label htmlFor="wardrobe-item-name" className="text-sm font-medium text-muted-foreground">{t('wardrobe.editor.name')}</label>
+                <span className="text-xs text-muted-foreground">{t('wardrobe.editor.autoGenerated')}</span>
+              </div>
               <input
+                id="wardrobe-item-name"
                 type="text"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="例如：黑色羽绒服"
+                onChange={(event) => {
+                  setName(event.target.value);
+                  setNameIsCustom(event.target.value.trim().length > 0);
+                }}
+                placeholder={t('wardrobe.editor.namePlaceholder')}
                 className="input-field"
               />
             </div>
 
-            {/* Usage */}
+            {/* Photo stays optional: users can add clothes first and enrich them later. */}
             <div>
-              <label className="text-sm font-medium text-muted-foreground mb-2 block">用途</label>
-              <div className="flex gap-2">
-                {USAGE_OPTIONS.map(opt => (
-                  <button
-                    key={opt.value}
-                    onClick={() => setUsage(opt.value)}
-                    className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                      usage === opt.value
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+              <div className="mb-2 flex items-center justify-between">
+                <label className="text-sm font-medium text-muted-foreground">
+                  {t('wardrobe.editor.photo')}
+                </label>
+                <span className="text-xs text-muted-foreground">{t('wardrobe.editor.optional')}</span>
               </div>
-            </div>
-
-            {/* Warmth Level */}
-            <div>
-              <label className="text-sm font-medium text-muted-foreground mb-2 block">
-                保暖等级 <span className="text-primary font-bold ml-1">{warmthLevel}</span>
-              </label>
-              <div className="flex gap-2">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(level => (
-                  <button
-                    key={level}
-                    onClick={() => setWarmthLevel(level)}
-                    className={`flex-1 h-10 rounded-lg text-sm font-medium transition-all ${
-                      warmthLevel >= level
-                        ? 'bg-orange-500 text-white'
-                        : 'bg-muted text-muted-foreground'
-                    }`}
-                  >
-                    {level}
-                  </button>
-                ))}
-              </div>
-              <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                <span>轻薄</span>
-                <span>保暖</span>
-              </div>
-            </div>
-
-            {/* Toggles */}
-            <div className="space-y-3">
-              {showWaterWind && (
-                <>
-                  <ToggleRow
-                    label="防水"
-                    checked={waterResistant}
-                    onChange={setWaterResistant}
-                  />
-                  <ToggleRow
-                    label="防风"
-                    checked={windResistant}
-                    onChange={setWindResistant}
-                  />
-                </>
-              )}
-              {selectedCategory === 'bottom' && (
-                <ToggleRow
-                  label="有口袋（可放能量胶）"
-                  checked={hasPockets}
-                  onChange={setHasPockets}
+              <div className="flex gap-3 rounded-2xl border border-border bg-card p-3">
+                <ClothingThumbnail
+                  imageUrl={imagePreview}
+                  name={t('wardrobe.editor.photoPreview')}
+                  fallbackIcon="📷"
+                  className="h-24 w-24"
                 />
+                <div className="flex min-w-0 flex-1 flex-col justify-center">
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    {t('wardrobe.editor.photoHint')}
+                  </p>
+                  <div className="mt-2 flex gap-2">
+                    <input
+                      id="wardrobe-photo"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="sr-only"
+                      onChange={handleImageChange}
+                    />
+                    <label
+                      htmlFor="wardrobe-photo"
+                      className="inline-flex cursor-pointer items-center rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+                    >
+                      <ImagePlus size={14} className="mr-1.5" aria-hidden="true" />
+                      {t(imagePreview ? 'wardrobe.editor.changePhoto' : 'wardrobe.editor.addPhoto')}
+                    </label>
+                    {imagePreview && (
+                      <button
+                        type="button"
+                        onClick={handleRemoveImage}
+                        className="rounded-lg bg-muted px-3 py-2 text-xs font-medium text-muted-foreground hover:text-destructive"
+                      >
+                        {t('wardrobe.editor.removePhoto')}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="overflow-hidden rounded-2xl border border-border bg-card">
+              <button
+                type="button"
+                aria-expanded={showAdvanced}
+                onClick={() => setShowAdvanced(current => !current)}
+                className="flex w-full items-center gap-3 p-4 text-left hover:bg-muted/40"
+              >
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted text-primary">
+                  <Sparkles size={17} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium">{t('wardrobe.editor.advanced')}</span>
+                  <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                    {t('wardrobe.editor.estimatedSummary', {
+                      warmth: warmthLevel,
+                      usage: t(USAGE_OPTIONS.find(option => option.value === usage)?.labelKey || 'tags.both'),
+                    })}
+                  </span>
+                </span>
+                <ChevronDown size={18} className={`text-muted-foreground transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
+              </button>
+
+              {showAdvanced && (
+                <div className="space-y-5 border-t border-border p-4 animate-fade-in">
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground mb-2 block">{t('wardrobe.editor.usage')}</label>
+                    <div className="flex gap-2">
+                      {USAGE_OPTIONS.map(opt => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setUsage(opt.value)}
+                          className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                            usage === opt.value
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-muted text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          {t(opt.labelKey)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                      {t('wardrobe.editor.warmth')} <span className="text-primary font-bold ml-1">{warmthLevel}</span>
+                    </label>
+                    <div className="flex gap-1.5">
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(level => (
+                        <button
+                          key={level}
+                          type="button"
+                          onClick={() => setWarmthLevel(level)}
+                          className={`flex-1 h-9 rounded-lg text-xs font-medium transition-all ${
+                            warmthLevel >= level
+                              ? 'bg-orange-500 text-white'
+                              : 'bg-muted text-muted-foreground'
+                          }`}
+                        >
+                          {level}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                      <span>{t('wardrobe.editor.lightweight')}</span>
+                      <span>{t('wardrobe.editor.warm')}</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {showWaterWind && (
+                      <>
+                        <ToggleRow label={t('clothing.waterproof')} checked={waterResistant} onChange={setWaterResistant} />
+                        <ToggleRow label={t('clothing.windproof')} checked={windResistant} onChange={setWindResistant} />
+                      </>
+                    )}
+                    {selectedCategory === 'bottom' && (
+                      <ToggleRow label={t('wardrobe.editor.pockets')} checked={hasPockets} onChange={setHasPockets} />
+                    )}
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -904,10 +1096,10 @@ function AddEditItemModal({
         <div className="p-5 border-t border-border shrink-0">
           <Button 
             className="w-full h-12 text-base"
-            disabled={!subCategory || !name.trim()}
+            disabled={!subCategory || !name.trim() || saving}
             onClick={handleSubmit}
           >
-            {isEditing ? '保存' : '添加'}
+            {saving ? t('wardrobe.editor.saving') : isEditing ? t('wardrobe.editor.save') : t('wardrobe.editor.add')}
           </Button>
         </div>
       </div>
@@ -963,292 +1155,38 @@ function ToggleRow({ label, checked, onChange }: { label: string; checked: boole
   );
 }
 
-// 快速添加模板组件
-function QuickAddTemplates({ 
-  onAddTemplate, 
-  onAddSingle 
-}: { 
-  onAddTemplate: (template: QuickTemplate) => void;
-  onAddSingle: (category?: ClothingCategory) => void;
-}) {
-  const [selectedTemplate, setSelectedTemplate] = useState<QuickTemplate | null>(null);
-  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
-  const [adding, setAdding] = useState(false);
-  
-  const handleAdd = async () => {
-    if (!selectedTemplate) return;
-    setAdding(true);
-    await onAddTemplate(selectedTemplate);
-    setAdding(false);
-    setSelectedTemplate(null);
-  };
-  
-  if (selectedTemplate) {
-    return (
-      <div className="animate-fade-in">
-        <div className="flex items-center gap-2 mb-4">
-          <button 
-            onClick={() => setSelectedTemplate(null)}
-            className="text-sm text-muted-foreground hover:text-foreground"
-          >
-            ← 返回
-          </button>
-        </div>
-        
-        <div className="bg-card border border-border rounded-xl p-4 mb-4">
-          <div className="flex items-center gap-3 mb-3">
-            <span className="text-3xl">{selectedTemplate.icon}</span>
-            <div className="text-left">
-              <h3 className="font-medium">{selectedTemplate.name}</h3>
-              <p className="text-sm text-muted-foreground">{selectedTemplate.description}</p>
-            </div>
-          </div>
-          
-          <div className="space-y-2 mb-4">
-            <p className="text-sm font-medium text-muted-foreground">包含衣物：</p>
-            {selectedTemplate.items.map((item, idx) => (
-              <div key={idx} className="flex items-center gap-2 text-sm pl-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-primary/60" />
-                <span className="text-muted-foreground">{CATEGORIES.find(c => c.type === item.category)?.icon}</span>
-                <span>{item.name}</span>
-                <span className="text-[10px] px-1.5 py-0.5 bg-muted rounded text-muted-foreground">保暖{item.warmthLevel}</span>
-              </div>
-            ))}
-          </div>
-          
-          <div className="flex gap-3">
-            <Button 
-              variant="outline" 
-              className="flex-1"
-              onClick={() => setSelectedTemplate(null)}
-              disabled={adding}
-            >
-              取消
-            </Button>
-            <Button 
-              className="flex-1"
-              onClick={handleAdd}
-              disabled={adding}
-            >
-              {adding ? '添加中...' : '确认添加'}
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-  
-  if (showCategoryPicker) {
-    return (
-      <div className="animate-fade-in">
-        <div className="flex items-center gap-2 mb-4">
-          <button 
-            onClick={() => setShowCategoryPicker(false)}
-            className="text-sm text-muted-foreground hover:text-foreground"
-          >
-            ← 返回
-          </button>
-        </div>
-        
-        <p className="text-sm font-medium mb-3 text-muted-foreground">选择分类</p>
-        <div className="grid grid-cols-2 gap-3">
-          {CATEGORIES.map(cat => (
-            <button
-              key={cat.type}
-              onClick={() => {
-                onAddSingle(cat.type);
-                setShowCategoryPicker(false);
-              }}
-              className="flex items-center gap-3 p-4 bg-card border border-border rounded-xl hover:border-primary/50 hover:bg-accent/30 transition-all text-left"
-            >
-              <span className="text-2xl">{cat.icon}</span>
-              <span className="text-sm font-medium">{cat.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  }
-  
-  return (
-    <div className="space-y-4">
-      {/* 快速模板 */}
-      <div>
-        <p className="text-sm font-medium mb-3 text-muted-foreground">快速开始（一键添加套装）</p>
-        <div className="space-y-2">
-          {QUICK_TEMPLATES.map(template => (
-            <button
-              key={template.id}
-              onClick={() => setSelectedTemplate(template)}
-              className="w-full flex items-center gap-3 p-3 bg-card border border-border rounded-xl hover:border-primary/50 hover:bg-accent/30 transition-all text-left"
-            >
-              <span className="text-2xl">{template.icon}</span>
-              <div className="flex-1 min-w-0">
-                <div className="font-medium">{template.name}</div>
-                <div className="text-sm text-muted-foreground truncate">{template.description} · {template.items.length}件衣物</div>
-              </div>
-              <ChevronLeft size={16} className="text-muted-foreground rotate-180" />
-            </button>
-          ))}
-        </div>
-      </div>
-      
-      {/* 分隔线 */}
-      <div className="flex items-center gap-4">
-        <div className="flex-1 h-px bg-border" />
-        <span className="text-xs text-muted-foreground">或</span>
-        <div className="flex-1 h-px bg-border" />
-      </div>
-      
-      {/* 单独添加 */}
-      <button
-        onClick={() => setShowCategoryPicker(true)}
-        className="w-full flex items-center justify-center gap-2 p-3 border border-dashed border-border rounded-xl hover:border-primary/50 hover:bg-accent/30 transition-all text-muted-foreground hover:text-foreground"
-      >
-        <Plus size={18} />
-        <span>手动添加衣物</span>
-      </button>
-    </div>
-  );
-}
-
-
-// 快速添加模态框（非空衣柜时使用）
+// 快速添加模态框：与空衣柜共用“勾选我拥有的单品”流程。
 function QuickAddModal({
   onClose,
-  onAddTemplate,
-  onAddSingle,
+  onAddItems,
+  onManualAdd,
 }: {
   onClose: () => void;
-  onAddTemplate: (template: QuickTemplate) => void;
-  onAddSingle: (category?: ClothingCategory) => void;
+  onAddItems: (items: QuickWardrobeDraft[]) => Promise<void>;
+  onManualAdd: (category: ClothingCategory) => void;
 }) {
-  const [selectedTemplate, setSelectedTemplate] = useState<QuickTemplate | null>(null);
-  const [adding, setAdding] = useState(false);
-  
-  const handleAdd = async () => {
-    if (!selectedTemplate) return;
-    setAdding(true);
-    await onAddTemplate(selectedTemplate);
-    setAdding(false);
-    // 添加成功后关闭模态框并提示
-    toast({ title: `已添加 ${selectedTemplate.name}`, description: `成功添加 ${selectedTemplate.items.length} 件衣物` });
+  const { t } = useTranslation();
+
+  const handleAddItems = async (items: QuickWardrobeDraft[]) => {
+    await onAddItems(items);
     onClose();
   };
-  
+
   return (
-    <div className="fixed inset-0 bg-background/95 backdrop-blur-xl z-50 animate-fade-in">
-      <div className="max-w-md mx-auto h-full flex flex-col">
-        {/* Header */}
-        <div className="safe-area-header px-5 pb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold">快速添加</h2>
-          <Button variant="ghost" size="icon" onClick={onClose}>
+    <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-xl animate-fade-in">
+      <div className="mx-auto flex h-full max-w-md flex-col">
+        <header className="safe-area-header flex items-center justify-between px-5 pb-4">
+          <div>
+            <h2 className="text-xl font-semibold">{t('wardrobe.quick.modalTitle')}</h2>
+            <p className="mt-1 text-xs text-muted-foreground">{t('wardrobe.quick.modalDescription')}</p>
+          </div>
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label={t('wardrobe.quick.close')}>
             <X size={20} />
           </Button>
-        </div>
-        
-        {/* Content */}
-        <div className="flex-1 overflow-auto px-5 pb-8">
-          {selectedTemplate ? (
-            <div className="animate-fade-in">
-              <button 
-                onClick={() => setSelectedTemplate(null)}
-                className="text-sm text-muted-foreground hover:text-foreground mb-4"
-              >
-                ← 返回
-              </button>
-              
-              <div className="bg-card border border-border rounded-xl p-4 mb-4">
-                <div className="flex items-center gap-3 mb-3">
-                  <span className="text-3xl">{selectedTemplate.icon}</span>
-                  <div>
-                    <h3 className="font-medium">{selectedTemplate.name}</h3>
-                    <p className="text-sm text-muted-foreground">{selectedTemplate.description}</p>
-                  </div>
-                </div>
-                
-                <div className="space-y-2 mb-4">
-                  <p className="text-sm font-medium text-muted-foreground">包含衣物：</p>
-                  {selectedTemplate.items.map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-2 text-sm pl-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary/60" />
-                      <span className="text-muted-foreground">
-                        {CATEGORIES.find(c => c.type === item.category)?.icon}
-                      </span>
-                      <span>{item.name}</span>
-                    </div>
-                  ))}
-                </div>
-                
-                <div className="flex gap-3">
-                  <Button 
-                    variant="outline" 
-                    className="flex-1"
-                    onClick={() => setSelectedTemplate(null)}
-                    disabled={adding}
-                  >
-                    取消
-                  </Button>
-                  <Button 
-                    className="flex-1"
-                    onClick={handleAdd}
-                    disabled={adding}
-                  >
-                    {adding ? '添加中...' : '确认添加'}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {/* 快速模板 */}
-              <div>
-                <p className="text-sm font-medium mb-3 text-muted-foreground">一键添加套装</p>
-                <div className="space-y-2">
-                  {QUICK_TEMPLATES.map(template => (
-                    <button
-                      key={template.id}
-                      onClick={() => setSelectedTemplate(template)}
-                      className="w-full flex items-center gap-3 p-3 bg-card border border-border rounded-xl hover:border-primary/50 hover:bg-accent/30 transition-all text-left"
-                    >
-                      <span className="text-2xl">{template.icon}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium">{template.name}</div>
-                        <div className="text-sm text-muted-foreground truncate">
-                          {template.description} · {template.items.length}件衣物
-                        </div>
-                      </div>
-                      <ChevronLeft size={16} className="text-muted-foreground rotate-180" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-              
-              {/* 分隔线 */}
-              <div className="flex items-center gap-4">
-                <div className="flex-1 h-px bg-border" />
-                <span className="text-xs text-muted-foreground">或</span>
-                <div className="flex-1 h-px bg-border" />
-              </div>
-              
-              {/* 分类添加 */}
-              <div>
-                <p className="text-sm font-medium mb-3 text-muted-foreground">按分类添加</p>
-                <div className="grid grid-cols-2 gap-3">
-                  {CATEGORIES.map(cat => (
-                    <button
-                      key={cat.type}
-                      onClick={() => onAddSingle(cat.type)}
-                      className="flex items-center gap-3 p-4 bg-card border border-border rounded-xl hover:border-primary/50 hover:bg-accent/30 transition-all text-left"
-                    >
-                      <span className="text-2xl">{cat.icon}</span>
-                      <span className="text-sm font-medium">{cat.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
+        </header>
+
+        <div className="flex-1 overflow-y-auto px-5 pb-8">
+          <QuickWardrobeBuilder onAddItems={handleAddItems} onManualAdd={onManualAdd} />
         </div>
       </div>
     </div>
